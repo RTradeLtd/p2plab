@@ -192,9 +192,10 @@ func (a *clusterAPI) List(ctx context.Context, opts ...p2plab.ListOption) ([]p2p
 type Event struct {
 }
 
-func (a *clusterAPI) Remove(ctx context.Context, names ...string) error {
+func (a *clusterAPI) Remove(ctx context.Context, force bool, names ...string) error {
 	req := a.client.NewRequest("DELETE", a.url("/clusters/delete")).
-		Option("names", strings.Join(names, ","))
+		Option("names", strings.Join(names, ",")).
+		Option("force", force)
 
 	resp, err := req.Send(ctx)
 	if err != nil {

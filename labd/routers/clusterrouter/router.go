@@ -172,7 +172,10 @@ func (s *router) putClustersLabel(ctx context.Context, w http.ResponseWriter, r 
 
 func (s *router) deleteClusters(ctx context.Context, w http.ResponseWriter, r *http.Request, vars map[string]string) error {
 	names := strings.Split(r.FormValue("names"), ",")
-
+	var force bool
+	if r.FormValue("force") != "" {
+		force = true
+	}
 	ctx, logger := logutil.WithResponseLogger(ctx, w)
 
 	// TODO: parallelize with different color loggers?
@@ -185,7 +188,7 @@ func (s *router) deleteClusters(ctx context.Context, w http.ResponseWriter, r *h
 			return errors.Wrapf(err, "failed to get cluster %q", name)
 		}
 
-		if cluster.Status != metadata.ClusterDestroying {
+		if cluster.Status != metadata.ClusterDestroying || force {
 			cluster.Status = metadata.ClusterDestroying
 			cluster, err = s.db.UpdateCluster(ctx, cluster)
 			if err != nil {
