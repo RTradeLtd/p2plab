@@ -101,6 +101,12 @@ var clusterCommand = cli.Command{
 			Aliases:   []string{"rm"},
 			Usage:     "Remove clusters.",
 			Action:    removeClustersAction,
+			Flags: []cli.Flag{
+				cli.BoolFlag{
+					Name:  "force",
+					Usage: "force removal to ignore possible staleness and other misc issues",
+				},
+			},
 		},
 	},
 }
