@@ -35,7 +35,7 @@ type ClusterAPI interface {
 	List(ctx context.Context, opts ...ListOption) ([]Cluster, error)
 
 	// Remove destroys clusters permanently.
-	Remove(ctx context.Context, names ...string) error
+	Remove(ctx context.Context, force bool, names ...string) error
 }
 
 // Cluster is a group of instances connected in a p2p network. They can be

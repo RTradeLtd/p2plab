@@ -101,6 +101,12 @@ var clusterCommand = cli.Command{
 			Aliases:   []string{"rm"},
 			Usage:     "Remove clusters.",
 			Action:    removeClustersAction,
+			Flags: []cli.Flag{
+				cli.BoolFlag{
+					Name:  "force",
+					Usage: "force removal to ignore possible staleness and other misc issues",
+				},
+			},
 		},
 	},
 }
@@ -251,7 +257,7 @@ func removeClustersAction(c *cli.Context) error {
 	}
 
 	ctx := cliutil.CommandContext(c)
-	err = control.Cluster().Remove(ctx, names...)
+	err = control.Cluster().Remove(ctx, c.Bool("force"), names...)
 	if err != nil {
 		return err
 	}
