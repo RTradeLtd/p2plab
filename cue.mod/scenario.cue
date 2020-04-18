@@ -7,7 +7,8 @@ Object :: {
 
 Scenario :: {
     objects: [...Object]
-    ...
+    // enable any fields for benchmark
+    benchmark:  { ... }
 }
 
 Seed :: {

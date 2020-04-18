@@ -8,6 +8,7 @@ Nodes :: {
     size: >=1 | *1
     instanceType: string
     region: string
+    // labels is an optional field
     labels?: [...string]
 }
 
