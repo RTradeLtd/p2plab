@@ -1,5 +1,14 @@
 package p2plab
 
+object: "golang": {
+    type: "oci"
+    source: "docker.io/library/golang:latest"
+}
+object: "mysql": {
+    type: "oci"
+    source: "docker.io/library/mysql:latest"
+}
+
 experiment: Experiment & {
     cluster: Cluster & {
         groups: [ 
@@ -25,13 +34,4 @@ experiment: Experiment & {
             "(not neighbors)": "golang"
         }
     }
-}
-
-object: "golang": {
-    type: "oci"
-    source: "docker.io/library/golang:latest"
-}
-object: "mysql": {
-    type: "oci"
-    source: "docker.io/library/mysql:latest"
 }
