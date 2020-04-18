@@ -3,8 +3,9 @@ package p2plab
 // defines a set of nodes of size 1 or higher
 // a "node" is simply an EC2 instance provisioned of the given type
 Nodes :: {
-    // default of 1
-    size: int 
+    // must be greater than or equal to 1
+    // default value of this field is 1
+    size: >=1 | *1
     instanceType: string
     region: string
     labels?: [...string]
