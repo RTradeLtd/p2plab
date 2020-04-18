@@ -17,14 +17,21 @@ experiment: Experiment & {
         ]
     }
     scenario: Scenario & {
-        objects: [ 
-            Object & {
-                type: "oci" 
-                source: "docker.io/library/golang:latest"
-            } 
-        ]
+        objects:  [ object ]
+        seed: {
+            "neighbors": "golang"
+        }
         benchmark: {
             "(not neighbors)": "golang"
         }
     }
+}
+
+object: "golang": {
+    type: "oci"
+    source: "docker.io/library/golang:latest"
+}
+object: "mysql": {
+    type: "oci"
+    source: "docker.io/library/mysql:latest"
 }

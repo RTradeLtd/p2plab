@@ -1,16 +1,18 @@
 package p2plab
 
-Object :: {
+// Object :: {
+//    type: string
+//    source: string
+//}
+
+object: [Name=_]: {
     type: string
     source: string
 }
 
 Scenario :: {
-    objects: [...Object]
+    objects: [...object]
+    seed: { ... }
     // enable any fields for benchmark
     benchmark:  { ... }
-}
-
-Seed :: {
-    neighbors: string
 }
