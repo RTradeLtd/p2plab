@@ -13,7 +13,7 @@ us_east_1: Nodes & {
     labels: [ "neighbors" ]
 }
 
-clust1: Cluster & {
+clust: Cluster & {
     groups: [ us_west_1, us_east_1 ]
 }
 
@@ -22,11 +22,15 @@ object: Object & {
     source: "docker.io/library/golang:latest"
 }
 
-scen1: Scenario & {
+scen: Scenario & {
     objects: [ object ]
+    benchmark: {
+        "(not neighbors)": "golang"
+    }
 }
 
+
 experiment: Experiment & {
-    cluster: clust1
-    scenario: scen1
+    cluster: clust
+    scenario: scen
 }

@@ -7,6 +7,7 @@ Object :: {
 
 Scenario :: {
     objects: [...Object]
+    ...
 }
 
 Seed :: {
