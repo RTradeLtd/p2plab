@@ -16,3 +16,20 @@ Nodes :: {
 Cluster :: {
     groups: [...Nodes]
 }
+
+object: [Name=_]: {
+    type: string
+    source: string
+}
+
+Scenario :: {
+    objects: [...object]
+    seed: { ... }
+    // enable any fields for benchmark
+    benchmark:  { ... }
+}
+
+Experiment :: {
+    cluster: Cluster
+    scenario: Scenario
+}
