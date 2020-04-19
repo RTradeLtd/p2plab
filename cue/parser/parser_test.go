@@ -1,7 +1,6 @@
 package parser
 
 import (
-	"fmt"
 	"io/ioutil"
 	"testing"
 )
@@ -17,5 +16,17 @@ func TestParser(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	fmt.Printf("%+v\n", inst)
+	if inst.Err != nil {
+		t.Fatal(inst.Err)
+	}
+	/* this currently fails
+	data, err = ioutil.ReadFile("../cue.mod/p2plab_example.cue")
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = parser.Compile("p2plab_example", data)
+	if err != nil {
+		t.Fatal(err)
+	}
+	*/
 }
