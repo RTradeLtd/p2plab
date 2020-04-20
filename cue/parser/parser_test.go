@@ -12,19 +12,12 @@ func TestParser(t *testing.T) {
 		t.Fatal(err)
 	}
 	parser := NewParser([]string{string(data)})
-	inst, err := parser.Compile("p2plab", data)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if inst.Err != nil {
-		t.Fatal(inst.Err)
-	}
 	/* this currently fails
 	 */data, err = ioutil.ReadFile("../cue.mod/p2plab_example.cue")
 	if err != nil {
 		t.Fatal(err)
 	}
-	_, err = parser.Compile("p2plab_example", data)
+	_, err = parser.Compile("p2plab_example", string(data))
 	if err != nil {
 		t.Fatal(err)
 	}
