@@ -1,6 +1,7 @@
 package parser
 
 import (
+	"fmt"
 	"io/ioutil"
 	"testing"
 )
@@ -17,9 +18,13 @@ func TestParser(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	_, err = parser.Compile("p2plab_example", string(data))
+	inst, err := parser.Compile("p2plab_example", string(data))
 	if err != nil {
 		t.Fatal(err)
 	}
-
+	val, err := parser.GetGroups(inst)
+	if err != nil {
+		t.Fatal(err)
+	}
+	fmt.Printf("%+v\n", val)
 }

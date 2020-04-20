@@ -33,3 +33,9 @@ func (p *Parser) Compile(name string, cueSource string) (*cue.Instance, error) {
 	}
 	return p.runtime.Compile(name, cueSource)
 }
+
+// GetGroups returns the groups in a cluster for the given instance
+func (p *Parser) GetGroups(inst *cue.Instance) (cue.Value, error) {
+	value := inst.Lookup("experiment").Lookup("cluster").Lookup("groups")
+	return value, value.Err()
+}
