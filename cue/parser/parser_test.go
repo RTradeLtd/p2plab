@@ -7,11 +7,11 @@ import (
 
 func TestParser(t *testing.T) {
 	//var edef metadata.ExperimentDefinition
-	parser := &Parser{}
 	data, err := ioutil.ReadFile("../cue.mod/p2plab.cue")
 	if err != nil {
 		t.Fatal(err)
 	}
+	parser := NewParser([]string{string(data)})
 	inst, err := parser.Compile("p2plab", data)
 	if err != nil {
 		t.Fatal(err)
@@ -20,7 +20,7 @@ func TestParser(t *testing.T) {
 		t.Fatal(inst.Err)
 	}
 	/* this currently fails
-	data, err = ioutil.ReadFile("../cue.mod/p2plab_example.cue")
+	 */data, err = ioutil.ReadFile("../cue.mod/p2plab_example.cue")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -28,5 +28,5 @@ func TestParser(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	*/
+
 }
