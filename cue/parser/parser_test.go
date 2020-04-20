@@ -22,18 +22,18 @@ func TestParser(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	val, err := pinst.GetGroups()
-	if err != nil {
+	val := pinst.GetGroups()
+	if val.Err() != nil {
 		t.Fatal(err)
 	}
 	fmt.Printf("%+v\n", val)
-	val, err = pinst.GetScenario()
-	if err != nil {
+	val = pinst.GetScenario()
+	if val.Err() != nil {
 		t.Fatal(err)
 	}
 	fmt.Printf("%+v\n", val)
-	val, err = pinst.GetObjects()
-	if err != nil {
+	val = pinst.GetObjects()
+	if val.Err() != nil {
 		t.Fatal(err)
 	}
 	fmt.Printf("%+v\n", val)
