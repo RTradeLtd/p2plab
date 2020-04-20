@@ -8,6 +8,12 @@ type P2PLabInstance struct {
 	*cue.Instance
 }
 
+// ToExperimentDefinition takes a cue instance and returns
+// the experiment definition needed to process the experiment
+func (p *P2PLabInstance) ToExperimentDefinition() {
+	// TODO(bonedaddy): implement
+}
+
 // GetExperiment returns the top-most cue value
 func (p *P2PLabInstance) GetExperiment() cue.Value {
 	return p.Lookup("experiment")
