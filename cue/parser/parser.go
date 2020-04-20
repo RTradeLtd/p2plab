@@ -25,17 +25,16 @@ func NewParser(entrypoints []string) *Parser {
 }
 
 // Compile is used to compile the given cue source into our runtime
-func (p *Parser) Compile(name string, cueSource string) (*cue.Instance, error) {
+// it returns a wrapped cue.Instance that provides helper lookup functions
+func (p *Parser) Compile(name string, cueSource string) (*P2PLabInstance, error) {
 	// this is a temporary work around
 	// until we can properly figure out the cue api
 	for _, point := range p.entrypoints {
 		cueSource += point
 	}
-	return p.runtime.Compile(name, cueSource)
-}
-
-// GetGroups returns the groups in a cluster for the given instance
-func (p *Parser) GetGroups(inst *cue.Instance) (cue.Value, error) {
-	value := inst.Lookup("experiment").Lookup("cluster").Lookup("groups")
-	return value, value.Err()
+	inst, err := p.runtime.Compile(name, cueSource)
+	if err != nil {
+		return nil, err
+	}
+	return &P2PLabInstance{inst}, nil
 }

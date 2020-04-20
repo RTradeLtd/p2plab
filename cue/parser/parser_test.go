@@ -18,11 +18,21 @@ func TestParser(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	inst, err := parser.Compile("p2plab_example", string(data))
+	pinst, err := parser.Compile("p2plab_example", string(data))
 	if err != nil {
 		t.Fatal(err)
 	}
-	val, err := parser.GetGroups(inst)
+	val, err := pinst.GetGroups()
+	if err != nil {
+		t.Fatal(err)
+	}
+	fmt.Printf("%+v\n", val)
+	val, err = pinst.GetScenario()
+	if err != nil {
+		t.Fatal(err)
+	}
+	fmt.Printf("%+v\n", val)
+	val, err = pinst.GetObjects()
 	if err != nil {
 		t.Fatal(err)
 	}
