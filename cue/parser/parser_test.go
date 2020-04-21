@@ -37,4 +37,9 @@ func TestParser(t *testing.T) {
 		t.Fatal(err)
 	}
 	fmt.Printf("%+v\n", val)
+	edf, err := pinst.ToExperimentDefinition()
+	if err != nil {
+		t.Fatal(err)
+	}
+	fmt.Printf("%+v\n", edf)
 }

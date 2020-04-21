@@ -1,6 +1,11 @@
 package parser
 
-import "cuelang.org/go/cue"
+import (
+	"encoding/json"
+
+	"cuelang.org/go/cue"
+	"github.com/Netflix/p2plab/metadata"
+)
 
 // P2PLabInstance is a wrapper around a cue instance
 // which exposes helper functions to reduce lookup verbosity
@@ -10,8 +15,29 @@ type P2PLabInstance struct {
 
 // ToExperimentDefinition takes a cue instance and returns
 // the experiment definition needed to process the experiment
-func (p *P2PLabInstance) ToExperimentDefinition() {
-	// TODO(bonedaddy): implement
+func (p *P2PLabInstance) ToExperimentDefinition() (*metadata.ExperimentDefinition, error) {
+	var (
+		cedf metadata.ClusterDefinition
+		sedf metadata.ScenarioDefinition
+	)
+	data, err := p.GetCluster().MarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	if err := json.Unmarshal(data, &cedf); err != nil {
+		return nil, err
+	}
+	data, err = p.GetScenario().MarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	if err := json.Unmarshal(data, &sedf); err != nil {
+		return nil, err
+	}
+	return &metadata.ExperimentDefinition{
+		ClusterDefinition:  cedf,
+		ScenarioDefinition: sedf,
+	}, nil
 }
 
 // GetExperiment returns the top-most cue value
