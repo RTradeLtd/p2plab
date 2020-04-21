@@ -27,7 +27,17 @@ Scenario :: {
     benchmark:  { ... }
 }
 
+Trial :: {
+    cluster: Cluster
+    scenario: Scenario
+}
+
+A:: {...}
+B:: {...}
+
 Experiment :: {
     cluster: Cluster
     scenario: Scenario
+    // trials: [ ... ]
+    trials: [ ...[A,B]]
 }

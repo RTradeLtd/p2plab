@@ -1,7 +1,7 @@
 package p2plab
 
 
-items: object & {
+items:: object & {
     golang: {
         type: "oci"
         source: "docker.io/library/golang:latest"
@@ -12,9 +12,8 @@ items: object & {
     }
 }
 
-experiment: Experiment & {
-    cluster: Cluster & {
-        groups: [ 
+clust1:: Cluster & {
+    groups: [
             Nodes & {
                 size: 10
                 instanceType: "t3.micro"
@@ -26,9 +25,10 @@ experiment: Experiment & {
                 region: "us-east-1"
                 labels: [ "neighbors" ]
             } 
-        ]
-    }
-    scenario: Scenario & {
+    ]
+}
+
+scen1:: Scenario & {
         objects:  [ items ]
         seed: {
             "neighbors": "golang"
@@ -36,5 +36,20 @@ experiment: Experiment & {
         benchmark: {
             "(not neighbors)": "golang"
         }
-    }
+}
+
+scen2:: Scenario & {
+        objects:  [ items ]
+        seed: {
+            "neighbors": "golang"
+        }
+        benchmark: {
+            "(neighbors)": "golang"
+        }
+}
+
+experiment: Experiment & {
+    cluster: clust1
+    scenario: scen1
+    trials: [[clust1,scen1],[clust1,scen2]]
 }
