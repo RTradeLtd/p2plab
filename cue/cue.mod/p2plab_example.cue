@@ -1,12 +1,15 @@
 package p2plab
 
-object: "golang": {
-    type: "oci"
-    source: "docker.io/library/golang:latest"
-}
-object: "mysql": {
-    type: "oci"
-    source: "docker.io/library/mysql:latest"
+
+items: object & {
+    golang: {
+        type: "oci"
+        source: "docker.io/library/golang:latest"
+    }
+    mysql: {
+        type: "oci"
+        source: "docker.io/library/mysql:latest"
+    }
 }
 
 experiment: Experiment & {
@@ -26,7 +29,7 @@ experiment: Experiment & {
         ]
     }
     scenario: Scenario & {
-        objects:  [ object ]
+        objects:  [ items ]
         seed: {
             "neighbors": "golang"
         }

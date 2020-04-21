@@ -15,7 +15,7 @@ Cluster :: {
     groups: [...Nodes]
 }
 
-object: [Name=_]: {
+object :: [Name=_]: {
     type: string
     source: string
 }
