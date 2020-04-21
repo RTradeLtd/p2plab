@@ -42,6 +42,20 @@ func (p *P2PLabInstance) ToExperimentDefinition() (*metadata.ExperimentDefinitio
 	if err := json.Unmarshal(objData, &sedf.Objects); err != nil {
 		return nil, err
 	}
+	data, err = p.GetSeed().MarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	if err := json.Unmarshal(data, &sedf.Seed); err != nil {
+		return nil, err
+	}
+	data, err = p.GetBenchmark().MarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	if err := json.Unmarshal(data, &sedf.Benchmark); err != nil {
+		return nil, err
+	}
 	return &metadata.ExperimentDefinition{
 		ClusterDefinition:  cedf,
 		ScenarioDefinition: sedf,
