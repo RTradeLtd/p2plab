@@ -27,11 +27,19 @@ func (p *P2PLabInstance) ToExperimentDefinition() (*metadata.ExperimentDefinitio
 	if err := json.Unmarshal(data, &cedf); err != nil {
 		return nil, err
 	}
-	data, err = p.GetScenario().MarshalJSON()
+	iter, err := p.GetObjects().List()
 	if err != nil {
 		return nil, err
 	}
-	if err := json.Unmarshal(data, &sedf); err != nil {
+	var objData []byte
+	for iter.Next() {
+		data, err := iter.Value().MarshalJSON()
+		if err != nil {
+			return nil, err
+		}
+		objData = append(objData, data...)
+	}
+	if err := json.Unmarshal(objData, &sedf.Objects); err != nil {
 		return nil, err
 	}
 	return &metadata.ExperimentDefinition{
