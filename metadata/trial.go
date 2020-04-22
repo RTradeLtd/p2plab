@@ -7,6 +7,6 @@ type TrialDefinition struct {
 
 // Trial is one particular cluster + scenario combination to run
 type Trial struct {
-	Cluster  ClusterGroup       `json:"cluster"`
+	Cluster  []ClusterGroup     `json:"cluster"`
 	Scenario ScenarioDefinition `json:"scenario"`
 }

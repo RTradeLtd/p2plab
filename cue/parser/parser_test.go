@@ -22,12 +22,6 @@ func TestParser(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	_, err = pinst.TrialsToDefinition()
-	if err != nil {
-		t.Fatal(err)
-	}
-	return
-
 	val := pinst.GetGroups()
 	if val.Err() != nil {
 		t.Fatal(err)

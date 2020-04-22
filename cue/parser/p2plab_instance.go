@@ -2,7 +2,6 @@ package parser
 
 import (
 	"encoding/json"
-	"fmt"
 
 	"cuelang.org/go/cue"
 	"github.com/Netflix/p2plab/metadata"
@@ -57,9 +56,14 @@ func (p *P2PLabInstance) ToExperimentDefinition() (*metadata.ExperimentDefinitio
 	if err := json.Unmarshal(data, &sedf.Benchmark); err != nil {
 		return nil, err
 	}
+	trial, err := p.TrialsToDefinition()
+	if err != nil {
+		return nil, err
+	}
 	return &metadata.ExperimentDefinition{
 		ClusterDefinition:  cedf,
 		ScenarioDefinition: sedf,
+		TrialDefinition:    trial,
 	}, nil
 }
 
@@ -115,15 +119,15 @@ func (p *P2PLabInstance) TrialsToDefinition() (metadata.TrialDefinition, error) 
 		return def, err
 	}
 	for iter.Next() {
+		var (
+			trial metadata.Trial
+			sedf  metadata.ScenarioDefinition
+			cedf  []metadata.ClusterGroup
+		)
 		val := iter.Value()
 		if val.Err() != nil {
 			return def, val.Err()
 		}
-		/*len, err := val.Len().Uint64()
-		if err != nil {
-			return def, err
-		}
-		*/
 		iter2, err := val.List()
 		if err != nil {
 			return def, err
@@ -135,21 +139,28 @@ func (p *P2PLabInstance) TrialsToDefinition() (metadata.TrialDefinition, error) 
 				if err != nil {
 					return def, err
 				}
-				fmt.Println(string(data))
+				if err := json.Unmarshal(data, &cedf); err != nil {
+					return def, err
+				}
 			} else {
 				objinfo, err := iter2.Value().LookupField("objects")
 				if err != nil {
 					return def, err
 				}
+				objiter, err := objinfo.Value.List()
+				if err != nil {
+					return def, err
+				}
+				objdef, err := getScenarioObjectDefinition(objiter)
+				if err != nil {
+					return def, err
+				}
+				sedf.Objects = objdef
 				seedinfo, err := iter2.Value().LookupField("seed")
 				if err != nil {
 					return def, err
 				}
 				benchinfo, err := iter2.Value().LookupField("benchmark")
-				if err != nil {
-					return def, err
-				}
-				objdata, err := objinfo.Value.MarshalJSON()
 				if err != nil {
 					return def, err
 				}
@@ -161,12 +172,35 @@ func (p *P2PLabInstance) TrialsToDefinition() (metadata.TrialDefinition, error) 
 				if err != nil {
 					return def, err
 				}
-				fmt.Printf(
-					"obj val: %s\nseed val: %s\nbench val: %s\n",
-					string(objdata), string(seeddata), string(benchdata),
-				)
+				if err := json.Unmarshal(seeddata, &sedf.Seed); err != nil {
+					return def, err
+				}
+				if err := json.Unmarshal(benchdata, &sedf.Benchmark); err != nil {
+					return def, err
+				}
 			}
 		}
+		trial.Cluster = cedf
+		trial.Scenario = sedf
+		def.Trials = append(def.Trials, trial)
 	}
 	return def, nil
+}
+
+func getScenarioObjectDefinition(iter cue.Iterator) (map[string]metadata.ObjectDefinition, error) {
+	var (
+		objData []byte
+		objDef  = make(map[string]metadata.ObjectDefinition)
+	)
+	for iter.Next() {
+		data, err := iter.Value().MarshalJSON()
+		if err != nil {
+			return nil, err
+		}
+		objData = append(objData, data...)
+	}
+	if err := json.Unmarshal(objData, &objDef); err != nil {
+		return nil, err
+	}
+	return objDef, nil
 }
