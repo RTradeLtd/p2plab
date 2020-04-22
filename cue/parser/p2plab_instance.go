@@ -31,17 +31,11 @@ func (p *P2PLabInstance) ToExperimentDefinition() (*metadata.ExperimentDefinitio
 	if err != nil {
 		return nil, err
 	}
-	var objData []byte
-	for iter.Next() {
-		data, err := iter.Value().MarshalJSON()
-		if err != nil {
-			return nil, err
-		}
-		objData = append(objData, data...)
-	}
-	if err := json.Unmarshal(objData, &sedf.Objects); err != nil {
+	objDef, err := getScenarioObjectDefinition(iter)
+	if err != nil {
 		return nil, err
 	}
+	sedf.Objects = objDef
 	data, err = p.GetSeed().MarshalJSON()
 	if err != nil {
 		return nil, err
@@ -143,6 +137,10 @@ func (p *P2PLabInstance) TrialsToDefinition() (metadata.TrialDefinition, error) 
 					return def, err
 				}
 			} else {
+				// if grps.Err is not nil, then it means we have the objects definition to parse
+				// because cue handles data validation, we dont need to worry about this not working
+				// because if we get this far in the processing without cue throwing an error
+				// this means its a likely indicator of a bug thats not a p2plab issue
 				objinfo, err := iter2.Value().LookupField("objects")
 				if err != nil {
 					return def, err
