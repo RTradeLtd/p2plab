@@ -2,6 +2,7 @@ package parser
 
 import (
 	"encoding/json"
+	"fmt"
 
 	"cuelang.org/go/cue"
 	"github.com/Netflix/p2plab/metadata"
@@ -95,4 +96,46 @@ func (p *P2PLabInstance) GetSeed() cue.Value {
 // GetBenchmark returns the benchmarks to run in p2plab
 func (p *P2PLabInstance) GetBenchmark() cue.Value {
 	return p.GetScenario().Lookup("benchmark")
+}
+
+// GetTrials returns the trials, a mapping of clusters and scenarios to run together
+func (p *P2PLabInstance) GetTrials() cue.Value {
+	return p.GetExperiment().Lookup("trials")
+}
+
+// TrialsToDefinition returns a metadata.TrialDefinition
+func (p *P2PLabInstance) TrialsToDefinition() (metadata.TrialDefinition, error) {
+	def := metadata.TrialDefinition{}
+	val := p.GetTrials()
+	if val.Err() != nil {
+		return def, val.Err()
+	}
+	iter, err := val.List()
+	if err != nil {
+		return def, err
+	}
+	for iter.Next() {
+		val := iter.Value()
+		if val.Err() != nil {
+			return def, val.Err()
+		}
+		/*len, err := val.Len().Uint64()
+		if err != nil {
+			return def, err
+		}
+		*/
+		iter2, err := val.List()
+		if err != nil {
+			return def, err
+		}
+		for iter2.Next() {
+			val2 := iter2.Value()
+			data, err := val2.MarshalJSON()
+			if err != nil {
+				return def, err
+			}
+			fmt.Println(string(data))
+		}
+	}
+	return def, nil
 }

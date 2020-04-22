@@ -22,24 +22,27 @@ func TestParser(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	_, err = pinst.TrialsToDefinition()
+	if err != nil {
+		t.Fatal(err)
+	}
+	return
+
 	val := pinst.GetGroups()
 	if val.Err() != nil {
 		t.Fatal(err)
 	}
-	fmt.Printf("%+v\n", val)
 	val = pinst.GetScenario()
 	if val.Err() != nil {
 		t.Fatal(err)
 	}
-	fmt.Printf("%+v\n", val)
 	val = pinst.GetObjects()
 	if val.Err() != nil {
 		t.Fatal(err)
 	}
-	fmt.Printf("%+v\n", val)
 	edf, err := pinst.ToExperimentDefinition()
 	if err != nil {
 		t.Fatal(err)
 	}
-	fmt.Printf("%+v\n", edf)
+	fmt.Printf("START\n%+v\nEND\n", edf)
 }
