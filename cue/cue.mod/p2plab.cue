@@ -32,8 +32,8 @@ Trial :: {
     scenario: Scenario
 }
 
-A:: {...}
-B:: {...}
+A:: Cluster
+B:: Scenario
 
 Experiment :: {
     cluster: Cluster
