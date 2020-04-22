@@ -129,26 +129,42 @@ func (p *P2PLabInstance) TrialsToDefinition() (metadata.TrialDefinition, error) 
 			return def, err
 		}
 		for iter2.Next() {
-			val2 := iter2.Value()
-			grps := val2.Lookup("groups")
-			if grps.Err() != nil {
-				continue
-			} else {
+			grps := iter2.Value().Lookup("groups")
+			if grps.Err() == nil {
 				data, err := grps.MarshalJSON()
 				if err != nil {
 					return def, err
 				}
 				fmt.Println(string(data))
-			}
-			obj := val2.Lookup("objects")
-			if obj.Err() != nil {
-				continue
 			} else {
-				data, err := obj.MarshalJSON()
+				objinfo, err := iter2.Value().LookupField("objects")
 				if err != nil {
 					return def, err
 				}
-				fmt.Println(string(data))
+				seedinfo, err := iter2.Value().LookupField("seed")
+				if err != nil {
+					return def, err
+				}
+				benchinfo, err := iter2.Value().LookupField("benchmark")
+				if err != nil {
+					return def, err
+				}
+				objdata, err := objinfo.Value.MarshalJSON()
+				if err != nil {
+					return def, err
+				}
+				seeddata, err := seedinfo.Value.MarshalJSON()
+				if err != nil {
+					return def, err
+				}
+				benchdata, err := benchinfo.Value.MarshalJSON()
+				if err != nil {
+					return def, err
+				}
+				fmt.Printf(
+					"obj val: %s\nseed val: %s\nbench val: %s\n",
+					string(objdata), string(seeddata), string(benchdata),
+				)
 			}
 		}
 	}
