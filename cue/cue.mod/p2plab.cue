@@ -15,7 +15,7 @@ Cluster :: {
     groups: [...Nodes]
 }
 
-object :: [Name=_]: {
+object :: [Name=_]: { 
     type: string
     source: string
 }
@@ -32,12 +32,9 @@ Trial :: {
     scenario: Scenario
 }
 
-A:: Cluster
-B:: Scenario
-
 Experiment :: {
     cluster: Cluster
     scenario: Scenario
     // trials: [ ... ]
-    trials: [ ...[A,B]]
+    trials: [ ...[Cluster,Scenario]]
 }

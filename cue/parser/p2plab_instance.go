@@ -130,11 +130,26 @@ func (p *P2PLabInstance) TrialsToDefinition() (metadata.TrialDefinition, error) 
 		}
 		for iter2.Next() {
 			val2 := iter2.Value()
-			data, err := val2.MarshalJSON()
-			if err != nil {
-				return def, err
+			grps := val2.Lookup("groups")
+			if grps.Err() != nil {
+				continue
+			} else {
+				data, err := grps.MarshalJSON()
+				if err != nil {
+					return def, err
+				}
+				fmt.Println(string(data))
 			}
-			fmt.Println(string(data))
+			obj := val2.Lookup("objects")
+			if obj.Err() != nil {
+				continue
+			} else {
+				data, err := obj.MarshalJSON()
+				if err != nil {
+					return def, err
+				}
+				fmt.Println(string(data))
+			}
 		}
 	}
 	return def, nil
