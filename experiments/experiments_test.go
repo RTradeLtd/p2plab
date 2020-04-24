@@ -74,6 +74,45 @@ func TestExperimentDefinition(t *testing.T) {
 			}
 		}
 	})
+	t.Run("Update Experiments", func(t *testing.T) {
+		for _, id := range ids {
+			exp, err := db.GetExperiment(ctx, id)
+			if err != nil {
+				t.Fatal(err)
+			}
+			prevUpdateAt := exp.UpdatedAt
+			exp.Labels = append(exp.Labels, "test label")
+			exp, err = db.UpdateExperiment(ctx, exp)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if exp.UpdatedAt.Before(prevUpdateAt) {
+				t.Fatal("bad update at time")
+			}
+		}
+	})
+	t.Run("Label Experiments", func(t *testing.T) {
+		exps, err := db.LabelExperiments(
+			ctx,
+			ids,
+			[]string{"should be present"},
+			[]string{"test label"},
+		)
+		if err != nil {
+			t.Fatal(err)
+		}
+		for _, exp := range exps {
+			if len(exp.Labels) != 1 {
+				t.Fatal("bad number of labels")
+			}
+			if exp.Labels[0] != "should be present" {
+				t.Fatal("bad label found")
+			}
+		}
+	})
+	t.Run("Delete Experiment", func(t *testing.T) {
+		t.Skip("TODO")
+	})
 }
 
 func newTestExperiment(t *testing.T, sourceFile, name string) metadata.Experiment {
