@@ -13,15 +13,11 @@ func TestDB(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	var testDir = "dbmetatest"
-	db, err := NewDB(testDir)
-	if err != nil {
-		t.Fatal(err)
-	}
+	db, cleanup := newTestDB(t, testDir)
 	defer func() {
-		if err := db.Close(); err != nil {
+		if err := cleanup(); err != nil {
 			t.Fatal(err)
 		}
-		os.RemoveAll(testDir)
 	}()
 	var (
 		testBucket = "test"
@@ -60,4 +56,18 @@ func TestDB(t *testing.T) {
 	}); err != nil {
 		t.Fatal(err)
 	}
+}
+
+func newTestDB(t *testing.T, path string) (DB, func() error) {
+	db, err := NewDB(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	cleanup := func() error {
+		if err := db.Close(); err != nil {
+			return err
+		}
+		return os.RemoveAll(path)
+	}
+	return db, cleanup
 }

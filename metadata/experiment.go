@@ -58,6 +58,7 @@ func (ed *ExperimentDefinition) ToJSON() ([]byte, error) {
 	return json.Marshal(ed)
 }
 
+// FromJSON loads the experiment definition with the values from data
 func (ed *ExperimentDefinition) FromJSON(data []byte) error {
 	return json.Unmarshal(data, ed)
 }
@@ -310,10 +311,6 @@ func writeExperiment(bkt *bolt.Bucket, experiment *Experiment) error {
 }
 
 func writeExperimentDefinition(bkt *bolt.Bucket, experiment *Experiment) error {
-	// dbkt, err := RecreateBucket(bkt, bucketKeyDefinition)
-	// if err != nil {
-	// 	return err
-	// }
 	dbkt, err := RecreateBucket(bkt, bucketKeyDefinition)
 	if err != nil {
 		return err
