@@ -16,6 +16,7 @@ package metadata
 
 import (
 	"context"
+	"encoding/json"
 	"time"
 
 	"github.com/Netflix/p2plab/errdefs"
@@ -50,6 +51,16 @@ type ExperimentDefinition struct {
 }
 
 type IndependentVariable map[string]interface{}
+
+// ToJSON is a helper function to convert an ExperimentDefinition
+// into it's JSON representation
+func (ed *ExperimentDefinition) ToJSON() ([]byte, error) {
+	return json.Marshal(ed)
+}
+
+func (ed *ExperimentDefinition) FromJSON(data []byte) error {
+	return json.Unmarshal(data, ed)
+}
 
 func (m *db) GetExperiment(ctx context.Context, id string) (Experiment, error) {
 	var experiment Experiment
@@ -228,7 +239,7 @@ func readExperiment(bkt *bolt.Bucket, experiment *Experiment) error {
 		return err
 	}
 
-	experiment.Definition, err = readExperimentDefinition(bkt)
+	experiment.Definition, err = readExperimentDefinition(bkt, experiment)
 	if err != nil {
 		return err
 	}
@@ -254,34 +265,19 @@ func readExperiment(bkt *bolt.Bucket, experiment *Experiment) error {
 	})
 }
 
-func readExperimentDefinition(bkt *bolt.Bucket) (ExperimentDefinition, error) {
+func readExperimentDefinition(bkt *bolt.Bucket, experiment *Experiment) (ExperimentDefinition, error) {
 	var edef ExperimentDefinition
-	/* TODO: enable in a followup PR
 	dbkt := bkt.Bucket(bucketKeyDefinition)
 	if dbkt == nil {
+		// TODO: should we error here
 		return edef, nil
 	}
-
-	cbkt := dbkt.Bucket(bucketKeyCluster)
-	if cbkt != nil {
-		var err error
-		// T
-		// edef.ClusterDefinition, err = readClusterDefinition(cbkt)
-		if err != nil {
-			return edef, nil
-		}
+	edefData := dbkt.Get([]byte(experiment.ID))
+	if edefData == nil {
+		// TODO: should we error here?
+		return edef, nil
 	}
-
-	sbkt := dbkt.Bucket(bucketKeyScenario)
-	if sbkt != nil {
-		// var err error
-		edef.ScenarioDefinition, err = readScenarioDefinition(sbkt)
-		if err != nil {
-			return edef, nil
-		}
-	}
-	*/
-	return edef, nil
+	return edef, edef.FromJSON(edefData)
 }
 
 func writeExperiment(bkt *bolt.Bucket, experiment *Experiment) error {
@@ -290,7 +286,7 @@ func writeExperiment(bkt *bolt.Bucket, experiment *Experiment) error {
 		return err
 	}
 
-	err = writeExperimentDefinition(bkt, experiment.Definition)
+	err = writeExperimentDefinition(bkt, experiment)
 	if err != nil {
 		return err
 	}
@@ -313,11 +309,18 @@ func writeExperiment(bkt *bolt.Bucket, experiment *Experiment) error {
 	return nil
 }
 
-func writeExperimentDefinition(bkt *bolt.Bucket, edef ExperimentDefinition) error {
+func writeExperimentDefinition(bkt *bolt.Bucket, experiment *Experiment) error {
 	// dbkt, err := RecreateBucket(bkt, bucketKeyDefinition)
 	// if err != nil {
 	// 	return err
 	// }
-
-	return nil
+	dbkt, err := RecreateBucket(bkt, bucketKeyDefinition)
+	if err != nil {
+		return err
+	}
+	edefData, err := experiment.Definition.ToJSON()
+	if err != nil {
+		return err
+	}
+	return dbkt.Put([]byte(experiment.ID), edefData)
 }
