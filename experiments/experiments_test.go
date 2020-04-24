@@ -64,13 +64,12 @@ func TestExperimentDefinition(t *testing.T) {
 		}
 	})
 	t.Run("List Experiments", func(t *testing.T) {
-		t.Skip("temporarily disabled")
 		experiments, err := db.ListExperiments(ctx)
 		if err != nil {
 			t.Fatal(err)
 		}
 		for _, experiment := range experiments {
-			if experiment.ID != ids[0] || experiment.ID != ids[1] {
+			if experiment.ID != ids[0] && experiment.ID != ids[1] {
 				t.Fatal("bad experiment id found")
 			}
 		}
