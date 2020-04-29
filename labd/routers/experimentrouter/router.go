@@ -18,6 +18,7 @@ import (
 	"context"
 	"fmt"
 	"io/ioutil"
+	"log"
 	"net/http"
 	"strings"
 	"sync"
@@ -102,29 +103,18 @@ func (s *router) postExperimentsCreate(ctx context.Context, w http.ResponseWrite
 	}
 	wg := &sync.WaitGroup{}
 	wg.Add(len(exp.Definition.TrialDefinition))
-	logger := zerolog.Ctx(ctx).With().Str("experiment", exp.ID).Logger()
-	logger.Info().Msg("creating trial goroutines")
 	for _, t := range exp.Definition.TrialDefinition {
 		go func(trial metadata.TrialDefinition) {
 			defer wg.Done()
-			benchmark := metadata.Benchmark{
-				ID:     uuid.New().String(),
-				Status: metadata.BenchmarkRunning,
-				Cluster: metadata.Cluster{
-					ID:         uuid.New().String(),
-					Definition: trial.Cluster,
-				},
-				Scenario: metadata.Scenario{
-					ID:         uuid.New().String(),
-					Definition: trial.Scenario,
-				},
+			nodeGroup, err := s.provider.CreateNodeGroup(ctx, uuid.New().String(), trial.Cluster)
+			if err != nil {
+				log.Println(err)
+				return
 			}
-			fmt.Printf("%+v\n", benchmark)
+			fmt.Printf("%+v\n", nodeGroup)
 		}(t)
 	}
-	logger.Info().Msg("waiting for trials to finish")
 	wg.Wait()
-	logger.Info().Msg("finished trials")
 	return nil
 }
 
