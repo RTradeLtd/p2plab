@@ -16,6 +16,7 @@ package command
 
 import (
 	"errors"
+	"fmt"
 
 	"github.com/Netflix/p2plab"
 	"github.com/Netflix/p2plab/experiments"
@@ -41,6 +42,10 @@ var experimentCommand = cli.Command{
 				&cli.StringFlag{
 					Name:  "name",
 					Usage: "Name of the experiment, by default takes the name of the experiment definition.",
+				},
+				&cli.BoolFlag{
+					Name:  "dry.run",
+					Usage: "dry run the epxeriment creation, parsing the cue file and printing it to stdout",
 				},
 			},
 		},
@@ -111,7 +116,14 @@ func createExperimentAction(c *cli.Context) error {
 	if err != nil {
 		return err
 	}
-
+	if c.Bool("dry.run") {
+		jedef, err := edef.ToJSON()
+		if err != nil {
+			return err
+		}
+		fmt.Printf("%+v\n", string(jedef))
+		return nil
+	}
 	control, err := ResolveControl(c)
 	if err != nil {
 		return err
