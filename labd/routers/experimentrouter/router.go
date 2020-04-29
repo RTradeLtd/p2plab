@@ -16,8 +16,11 @@ package experimentrouter
 
 import (
 	"context"
+	"fmt"
+	"io/ioutil"
 	"net/http"
 	"strings"
+	"sync"
 
 	"github.com/Netflix/p2plab"
 	"github.com/Netflix/p2plab/daemon"
@@ -28,6 +31,7 @@ import (
 	"github.com/Netflix/p2plab/query"
 	"github.com/Netflix/p2plab/transformers"
 	"github.com/containerd/containerd/errdefs"
+	"github.com/google/uuid"
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog"
 )
@@ -79,7 +83,49 @@ func (s *router) getExperimentByName(ctx context.Context, w http.ResponseWriter,
 }
 
 func (s *router) postExperimentsCreate(ctx context.Context, w http.ResponseWriter, r *http.Request, vars map[string]string) error {
-	return errors.New("unimplemented")
+	defer r.Body.Close()
+	data, err := ioutil.ReadAll(r.Body)
+	if err != nil {
+		return err
+	}
+	var edef metadata.ExperimentDefinition
+	if err := edef.FromJSON(data); err != nil {
+		return err
+	}
+	exp, err := s.db.CreateExperiment(ctx, metadata.Experiment{
+		ID:         uuid.New().String(),
+		Definition: edef,
+		Status:     metadata.ExperimentRunning,
+	})
+	if err != nil {
+		return err
+	}
+	wg := &sync.WaitGroup{}
+	wg.Add(len(exp.Definition.TrialDefinition))
+	logger := zerolog.Ctx(ctx).With().Str("experiment", exp.ID).Logger()
+	logger.Info().Msg("creating trial goroutines")
+	for _, t := range exp.Definition.TrialDefinition {
+		go func(trial metadata.TrialDefinition) {
+			defer wg.Done()
+			benchmark := metadata.Benchmark{
+				ID:     uuid.New().String(),
+				Status: metadata.BenchmarkRunning,
+				Cluster: metadata.Cluster{
+					ID:         uuid.New().String(),
+					Definition: trial.Cluster,
+				},
+				Scenario: metadata.Scenario{
+					ID:         uuid.New().String(),
+					Definition: trial.Scenario,
+				},
+			}
+			fmt.Printf("%+v\n", benchmark)
+		}(t)
+	}
+	logger.Info().Msg("waiting for trials to finish")
+	wg.Wait()
+	logger.Info().Msg("finished trials")
+	return nil
 }
 
 func (s *router) putExperimentsLabel(ctx context.Context, w http.ResponseWriter, r *http.Request, vars map[string]string) error {
