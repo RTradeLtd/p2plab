@@ -18,7 +18,6 @@ import (
 	"context"
 	"fmt"
 	"io/ioutil"
-	"log"
 	"net/http"
 	"strings"
 	"sync"
@@ -30,6 +29,7 @@ import (
 	"github.com/Netflix/p2plab/pkg/httputil"
 	"github.com/Netflix/p2plab/pkg/stringutil"
 	"github.com/Netflix/p2plab/query"
+	"github.com/Netflix/p2plab/scenarios"
 	"github.com/Netflix/p2plab/transformers"
 	"github.com/containerd/containerd/errdefs"
 	"github.com/google/uuid"
@@ -106,12 +106,14 @@ func (s *router) postExperimentsCreate(ctx context.Context, w http.ResponseWrite
 	for _, t := range exp.Definition.TrialDefinition {
 		go func(trial metadata.TrialDefinition) {
 			defer wg.Done()
-			nodeGroup, err := s.provider.CreateNodeGroup(ctx, uuid.New().String(), trial.Cluster)
+			plan, queries, err := scenarios.Plan(
+				ctx, trial.Scenario, s.ts, s.seeder, nil,
+			)
 			if err != nil {
-				log.Println(err)
 				return
 			}
-			fmt.Printf("%+v\n", nodeGroup)
+			fmt.Printf("plans\t%+v\n", plan)
+			fmt.Printf("queries\t%+v\n", queries)
 		}(t)
 	}
 	wg.Wait()
