@@ -105,9 +105,10 @@ func (s *router) postExperimentsCreate(ctx context.Context, w http.ResponseWrite
 	wg.Add(len(exp.Definition.TrialDefinition))
 	for _, t := range exp.Definition.TrialDefinition {
 		go func(trial metadata.TrialDefinition) {
+			lset := query.NewLabeledSet()
 			defer wg.Done()
 			plan, queries, err := scenarios.Plan(
-				ctx, trial.Scenario, s.ts, s.seeder, nil,
+				ctx, trial.Scenario, s.ts, s.seeder, lset,
 			)
 			if err != nil {
 				return
