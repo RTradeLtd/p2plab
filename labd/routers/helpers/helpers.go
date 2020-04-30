@@ -9,7 +9,6 @@ import (
 	"github.com/Netflix/p2plab/metadata"
 	"github.com/Netflix/p2plab/nodes"
 	"github.com/Netflix/p2plab/pkg/httputil"
-	"github.com/Netflix/p2plab/pkg/logutil"
 	"github.com/rs/zerolog"
 	bolt "go.etcd.io/bbolt"
 )
@@ -41,11 +40,6 @@ func (h *Helper) CreateCluster(ctx context.Context, cdef metadata.ClusterDefinit
 		}
 		err error
 	)
-
-	ctx, logger := logutil.WithResponseLogger(ctx, w)
-	logger.UpdateContext(func(c zerolog.Context) zerolog.Context {
-		return c.Str("name", name)
-	})
 
 	cluster, err = h.db.CreateCluster(ctx, cluster)
 	if err != nil {
