@@ -29,6 +29,7 @@ import (
 	"github.com/Netflix/p2plab/pkg/httputil"
 	"github.com/Netflix/p2plab/pkg/stringutil"
 	"github.com/Netflix/p2plab/query"
+	"github.com/Netflix/p2plab/scenarios"
 	"github.com/Netflix/p2plab/transformers"
 	"github.com/containerd/containerd/errdefs"
 	"github.com/google/uuid"
@@ -123,8 +124,38 @@ func (s *router) postExperimentsCreate(ctx context.Context, w http.ResponseWrite
 			defer func() {
 				fmt.Println("cluster tearing down")
 			}()
-			fmt.Println("creating plan from scenario")
-			fmt.Println("running plan on cluster")
+			plan, queries, err := scenarios.Plan(ctx, trial.Scenario, s.ts, s.seeder, query.NewLabeledSet())
+			if err != nil {
+				return err
+			}
+			if _, err = s.db.CreateBenchmark(ctx, metadata.Benchmark{
+				ID:      uuid.New().String(),
+				Status:  metadata.BenchmarkRunning,
+				Cluster: cluster,
+				Scenario: metadata.Scenario{
+					Definition: trial.Scenario,
+				},
+				Plan:   plan,
+				Labels: cluster.Labels,
+			}); err != nil {
+				return err
+			}
+			var seederAddrs []string
+			for _, addr := range s.seeder.Host().Addrs() {
+				seederAddrs = append(seederAddrs, fmt.Sprintf("%s/p2p/%s", addr, s.seeder.Host().ID()))
+			}
+			execution, err := scenarios.Run(ctx, query.NewLabeledSet(), plan, seederAddrs)
+			if err != nil {
+				return errors.Wrap(err, "failed to run scenario plan")
+			}
+			report := metadata.Report{
+				Summary: metadata.ReportSummary{
+					TotalTime: execution.End.Sub(execution.Start),
+				},
+				Nodes:   execution.Report,
+				Queries: queries,
+			}
+			fmt.Printf("%+v\n", report)
 			return nil
 		})
 	}
