@@ -23,7 +23,7 @@ clust1:: Cluster & {
                 size: 2
                 instanceType: "t3.medium"
                 region: "us-east-1"
-                labels: [ "neighbors" ]
+                labels: [ "'neighbors'" ]
             } 
     ]
 }
@@ -31,17 +31,17 @@ clust1:: Cluster & {
 scen1:: Scenario & {
         objects:  [ items ]
         seed: {
-            "neighbors": "golang"
+            "\"neighbors\"": "golang"
         }
         benchmark: {
-            "(not neighbors)": "golang"
+            "(not 'neighbors')": "golang"
         }
 }
 
 scen2:: Scenario & {
         objects:  [ items ]
         seed: {
-            "neighbors": "golang"
+            "\"neighbors\"": "golang"
         }
         benchmark: {
             "(neighbors)": "golang"
