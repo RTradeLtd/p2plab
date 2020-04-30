@@ -18,10 +18,8 @@ import (
 	"context"
 	"fmt"
 	"io/ioutil"
-	"log"
 	"net/http"
 	"strings"
-	"sync"
 
 	"github.com/Netflix/p2plab"
 	"github.com/Netflix/p2plab/daemon"
@@ -30,12 +28,12 @@ import (
 	"github.com/Netflix/p2plab/pkg/httputil"
 	"github.com/Netflix/p2plab/pkg/stringutil"
 	"github.com/Netflix/p2plab/query"
-	"github.com/Netflix/p2plab/scenarios"
 	"github.com/Netflix/p2plab/transformers"
 	"github.com/containerd/containerd/errdefs"
 	"github.com/google/uuid"
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog"
+	"golang.org/x/sync/errgroup"
 )
 
 type router struct {
@@ -102,56 +100,22 @@ func (s *router) postExperimentsCreate(ctx context.Context, w http.ResponseWrite
 	if err != nil {
 		return err
 	}
-	wg := &sync.WaitGroup{}
-	wg.Add(len(exp.Definition.TrialDefinition))
-	for _, t := range exp.Definition.TrialDefinition {
-		go func(trial metadata.TrialDefinition) {
-			lset := query.NewLabeledSet()
-			defer wg.Done()
-			plan, queries, err := scenarios.Plan(
-				ctx, trial.Scenario, s.ts, s.seeder, lset,
-			)
-			if err != nil {
-				log.Println(err)
-				return
-			}
-			benchmark := metadata.Benchmark{
-				ID:     uuid.New().String(),
-				Status: metadata.BenchmarkRunning,
-				Cluster: metadata.Cluster{
-					Definition: trial.Cluster,
-				},
-				Scenario: metadata.Scenario{
-					Definition: trial.Scenario,
-				},
-				Plan: plan,
-			}
-			benchmark, err = s.db.CreateBenchmark(ctx, benchmark)
-			if err != nil {
-				log.Println(err)
-				return
-			}
-			var seederAddrs []string
-			for _, addr := range s.seeder.Host().Addrs() {
-				seederAddrs = append(seederAddrs, fmt.Sprintf("%s/p2p/%s", addr, s.seeder.Host().ID()))
-			}
-			execution, err := scenarios.Run(ctx, lset, plan, seederAddrs)
-			if err != nil {
-				log.Println(err)
-				return
-			}
-			report := metadata.Report{
-				Summary: metadata.ReportSummary{
-					TotalTime: execution.End.Sub(execution.Start),
-				},
-				Nodes:   execution.Report,
-				Queries: queries,
-			}
-			fmt.Printf("%+v\n", report)
-		}(t)
+	errg, ctx := errgroup.WithContext(ctx)
+	for _, trial := range exp.Definition.TrialDefinition {
+		trial := trial
+		errg.Go(func() error {
+			// just temporary to silence error
+			_ = trial
+			fmt.Println("creating cluster")
+			defer func() {
+				fmt.Println("cluster tearing down")
+			}()
+			fmt.Println("creating plan from scenario")
+			fmt.Println("running plan on cluster")
+			return nil
+		})
 	}
-	wg.Wait()
-	return nil
+	return errg.Wait()
 }
 
 func (s *router) putExperimentsLabel(ctx context.Context, w http.ResponseWriter, r *http.Request, vars map[string]string) error {
