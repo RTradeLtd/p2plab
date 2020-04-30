@@ -18,6 +18,7 @@ import (
 	"context"
 	"fmt"
 	"io/ioutil"
+	"log"
 	"net/http"
 	"strings"
 	"sync"
@@ -111,10 +112,42 @@ func (s *router) postExperimentsCreate(ctx context.Context, w http.ResponseWrite
 				ctx, trial.Scenario, s.ts, s.seeder, lset,
 			)
 			if err != nil {
+				log.Println(err)
 				return
 			}
-			fmt.Printf("plans\t%+v\n", plan)
-			fmt.Printf("queries\t%+v\n", queries)
+			benchmark := metadata.Benchmark{
+				ID:     uuid.New().String(),
+				Status: metadata.BenchmarkRunning,
+				Cluster: metadata.Cluster{
+					Definition: trial.Cluster,
+				},
+				Scenario: metadata.Scenario{
+					Definition: trial.Scenario,
+				},
+				Plan: plan,
+			}
+			benchmark, err = s.db.CreateBenchmark(ctx, benchmark)
+			if err != nil {
+				log.Println(err)
+				return
+			}
+			var seederAddrs []string
+			for _, addr := range s.seeder.Host().Addrs() {
+				seederAddrs = append(seederAddrs, fmt.Sprintf("%s/p2p/%s", addr, s.seeder.Host().ID()))
+			}
+			execution, err := scenarios.Run(ctx, lset, plan, seederAddrs)
+			if err != nil {
+				log.Println(err)
+				return
+			}
+			report := metadata.Report{
+				Summary: metadata.ReportSummary{
+					TotalTime: execution.End.Sub(execution.Start),
+				},
+				Nodes:   execution.Report,
+				Queries: queries,
+			}
+			fmt.Printf("%+v\n", report)
 		}(t)
 	}
 	wg.Wait()
