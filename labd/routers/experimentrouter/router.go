@@ -115,8 +115,6 @@ func (s *router) postExperimentsCreate(ctx context.Context, w http.ResponseWrite
 	for _, trial := range exp.Definition.TrialDefinition {
 		trial := trial
 		errg.Go(func() error {
-			// just temporary to silence error
-			_ = trial
 			cluster, err := s.rhelper.CreateCluster(ctx, trial.Cluster, uuid.New().String(), w)
 			if err != nil {
 				return err
