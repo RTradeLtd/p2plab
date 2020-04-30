@@ -23,6 +23,7 @@ import (
 
 	"github.com/Netflix/p2plab"
 	"github.com/Netflix/p2plab/daemon"
+	"github.com/Netflix/p2plab/labd/routers/helpers"
 	"github.com/Netflix/p2plab/metadata"
 	"github.com/Netflix/p2plab/peer"
 	"github.com/Netflix/p2plab/pkg/httputil"
@@ -43,10 +44,20 @@ type router struct {
 	ts       *transformers.Transformers
 	seeder   *peer.Peer
 	builder  p2plab.Builder
+	rhelper  *helpers.Helper
 }
 
+// New returns a new experiment router initialized with the router helpers
 func New(db metadata.DB, provider p2plab.NodeProvider, client *httputil.Client, ts *transformers.Transformers, seeder *peer.Peer, builder p2plab.Builder) daemon.Router {
-	return &router{db, provider, client, ts, seeder, builder}
+	return &router{
+		db,
+		provider,
+		client,
+		ts,
+		seeder,
+		builder,
+		helpers.New(db, provider, client),
+	}
 }
 
 func (s *router) Routes() []daemon.Route {
@@ -106,7 +117,11 @@ func (s *router) postExperimentsCreate(ctx context.Context, w http.ResponseWrite
 		errg.Go(func() error {
 			// just temporary to silence error
 			_ = trial
-			fmt.Println("creating cluster")
+			cluster, err := s.rhelper.CreateCluster(ctx, trial.Cluster, uuid.New().String(), w)
+			if err != nil {
+				return err
+			}
+			fmt.Printf("%+v\n", cluster)
 			defer func() {
 				fmt.Println("cluster tearing down")
 			}()

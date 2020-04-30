@@ -22,26 +22,30 @@ import (
 
 	"github.com/Netflix/p2plab"
 	"github.com/Netflix/p2plab/daemon"
-	"github.com/Netflix/p2plab/labd/controlapi"
+	"github.com/Netflix/p2plab/labd/routers/helpers"
 	"github.com/Netflix/p2plab/metadata"
-	"github.com/Netflix/p2plab/nodes"
 	"github.com/Netflix/p2plab/pkg/httputil"
 	"github.com/Netflix/p2plab/pkg/logutil"
 	"github.com/Netflix/p2plab/pkg/stringutil"
 	"github.com/Netflix/p2plab/query"
 	"github.com/pkg/errors"
-	"github.com/rs/zerolog"
-	bolt "go.etcd.io/bbolt"
 )
 
 type router struct {
 	db       metadata.DB
 	provider p2plab.NodeProvider
 	client   *httputil.Client
+	rhelper  *helpers.Helper
 }
 
+// New returns a new clutser router initialized with the router helpers
 func New(db metadata.DB, provider p2plab.NodeProvider, client *httputil.Client) daemon.Router {
-	return &router{db, provider, client}
+	return &router{
+		db,
+		provider,
+		client,
+		helpers.New(db, provider, client),
+	}
 }
 
 func (s *router) Routes() []daemon.Route {
@@ -83,74 +87,8 @@ func (s *router) postClustersCreate(ctx context.Context, w http.ResponseWriter, 
 	if err != nil {
 		return err
 	}
-
-	name := r.FormValue("name")
-	ctx, logger := logutil.WithResponseLogger(ctx, w)
-	logger.UpdateContext(func(c zerolog.Context) zerolog.Context {
-		return c.Str("name", name)
-	})
-
-	cluster := metadata.Cluster{
-		ID:         name,
-		Status:     metadata.ClusterCreating,
-		Definition: cdef,
-		Labels: append([]string{
-			name,
-		}, cdef.GenerateLabels()...),
-	}
-
-	cluster, err = s.db.CreateCluster(ctx, cluster)
-	if err != nil {
-		return err
-	}
-	w.Header().Add(controlapi.ResourceID, name)
-
-	zerolog.Ctx(ctx).Info().Msg("Creating node group")
-	ng, err := s.provider.CreateNodeGroup(ctx, name, cdef)
-	if err != nil {
-		return err
-	}
-
-	zerolog.Ctx(ctx).Info().Msg("Updating metadata with new nodes")
-	var mns []metadata.Node
-	cluster.Status = metadata.ClusterConnecting
-	err = s.db.Update(ctx, func(tx *bolt.Tx) error {
-		var err error
-		tctx := metadata.WithTransactionContext(ctx, tx)
-		cluster, err = s.db.UpdateCluster(tctx, cluster)
-		if err != nil {
-			return err
-		}
-
-		mns, err = s.db.CreateNodes(tctx, cluster.ID, ng.Nodes)
-		if err != nil {
-			return err
-		}
-
-		return nil
-	})
-	if err != nil {
-		return err
-	}
-
-	var ns []p2plab.Node
-	for _, n := range mns {
-		ns = append(ns, controlapi.NewNode(s.client, n))
-	}
-
-	err = nodes.WaitHealthy(ctx, ns)
-	if err != nil {
-		return err
-	}
-
-	zerolog.Ctx(ctx).Info().Msg("Updating cluster metadata")
-	cluster.Status = metadata.ClusterCreated
-	_, err = s.db.UpdateCluster(ctx, cluster)
-	if err != nil {
-		return err
-	}
-
-	return nil
+	_, err = s.rhelper.CreateCluster(ctx, cdef, r.FormValue("name"), w)
+	return err
 }
 
 func (s *router) putClustersLabel(ctx context.Context, w http.ResponseWriter, r *http.Request, vars map[string]string) error {
