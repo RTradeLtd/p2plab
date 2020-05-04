@@ -117,7 +117,7 @@ func createExperimentAction(c *cli.Context) error {
 		return err
 	}
 	if c.Bool("dry.run") {
-		jedef, err := edef.ToJSON()
+		jedef, err := edef.ToJSONIndent()
 		if err != nil {
 			return err
 		}
