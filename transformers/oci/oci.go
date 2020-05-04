@@ -213,6 +213,12 @@ func ConvertHandler(conversions map[digest.Digest]ocispec.Descriptor, peer p2pla
 		if zerolog.Ctx(ctx).GetLevel() == zerolog.DebugLevel {
 			c, err := digestconv.DigestToCid(target.Digest)
 			if err != nil {
+				zerolog.Ctx(ctx).Error().Str("mediaType", desc.MediaType).
+					Str("source", desc.Digest.String()).
+					Str("cid", c.String()).
+					Int64("size", desc.Size).
+					Err(err).
+					Msg("failed to retrieve CID from digest")
 				return nil, err
 			}
 			zerolog.Ctx(ctx).Debug().Str("mediaType", desc.MediaType).Str("source", desc.Digest.String()).Str("cid", c.String()).Int64("size", desc.Size).Msg("Added blob to peer")
