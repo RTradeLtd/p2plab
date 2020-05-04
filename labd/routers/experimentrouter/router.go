@@ -16,6 +16,7 @@ package experimentrouter
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"net/http"
@@ -260,6 +261,13 @@ func (s *router) postExperimentsCreate(ctx context.Context, w http.ResponseWrite
 
 				return nil
 			})
+			if err == nil {
+				data, err := json.MarshalIndent(report, "", "    ")
+				if err != nil {
+					return err
+				}
+				fmt.Println(string(data))
+			}
 			return err
 		})
 	}
