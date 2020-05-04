@@ -18,6 +18,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"fmt"
 	"io"
 	"net/http"
 	"path/filepath"
@@ -202,6 +203,8 @@ func ConvertHandler(conversions map[digest.Digest]ocispec.Descriptor, peer p2pla
 			defer rc.Close()
 
 			target.Digest, err = AddBlob(ctx, peer, rc, opts...)
+		default:
+			return nil, fmt.Errorf("unhandled media type %s", desc.MediaType)
 		}
 		if err != nil {
 			return nil, errors.Wrapf(err, "failed to convert %q [%s]", desc.Digest, desc.MediaType)
