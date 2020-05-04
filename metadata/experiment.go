@@ -52,6 +52,10 @@ type ExperimentDefinition struct {
 
 type IndependentVariable map[string]interface{}
 
+func (ed *ExperimentDefinition) ToJSONIndent() ([]byte, error) {
+	return json.MarshalIndent(ed, "", "    ")
+}
+
 // ToJSON is a helper function to convert an ExperimentDefinition
 // into it's JSON representation
 func (ed *ExperimentDefinition) ToJSON() ([]byte, error) {
