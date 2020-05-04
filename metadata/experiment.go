@@ -34,6 +34,8 @@ type Experiment struct {
 	Labels []string
 
 	CreatedAt, UpdatedAt time.Time
+
+	Reports []Report
 }
 
 type ExperimentStatus string
