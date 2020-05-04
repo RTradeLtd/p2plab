@@ -26,6 +26,7 @@ import (
 	"github.com/Netflix/p2plab/nodes"
 	"github.com/Netflix/p2plab/reports"
 	"github.com/uber/jaeger-client-go"
+	bolt "go.etcd.io/bbolt"
 
 	"github.com/Netflix/p2plab"
 	"github.com/Netflix/p2plab/daemon"
@@ -230,8 +231,24 @@ func (s *router) postExperimentsCreate(ctx context.Context, w http.ResponseWrite
 					report.Summary.Trace = fmt.Sprintf("%s/trace/%s", jaegerUI, sc.TraceID())
 				}
 			}
-			fmt.Printf("%+v\n", report)
-			return nil
+			zerolog.Ctx(ctx).Info().Msg("Updating benchmark metadata")
+			err = s.db.Update(ctx, func(tx *bolt.Tx) error {
+				tctx := metadata.WithTransactionContext(ctx, tx)
+
+				err := s.db.CreateReport(tctx, benchmark.ID, report)
+				if err != nil {
+					return errors.Wrap(err, "failed to create report")
+				}
+
+				benchmark.Status = metadata.BenchmarkDone
+				_, err = s.db.UpdateBenchmark(tctx, benchmark)
+				if err != nil {
+					return errors.Wrap(err, "failed to update benchmark")
+				}
+
+				return nil
+			})
+			return err
 		})
 	}
 	return errg.Wait()
