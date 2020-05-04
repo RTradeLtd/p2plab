@@ -170,7 +170,7 @@ func (s *router) postExperimentsCreate(ctx context.Context, w http.ResponseWrite
 			for _, addr := range s.seeder.Host().Addrs() {
 				seederAddrs = append(seederAddrs, fmt.Sprintf("%s/p2p/%s", addr, s.seeder.Host().ID()))
 			}
-			execution, err := scenarios.Run(ctx, query.NewLabeledSet(), plan, seederAddrs)
+			execution, err := scenarios.Run(ctx, lset, plan, seederAddrs)
 			if err != nil {
 				return errors.Wrap(err, "failed to run scenario plan")
 			}
