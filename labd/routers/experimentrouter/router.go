@@ -131,6 +131,13 @@ func (s *router) postExperimentsCreate(ctx context.Context, w http.ResponseWrite
 	}
 	errg, ctx := errgroup.WithContext(ctx)
 	for i, trial := range exp.Definition.TrialDefinition {
+		// TODO(bonedaddy): if we dont do this, then we run into some issues
+		// with port numbers being re-used. For example when we start the goroutines
+		// for each of the benchmarks they use the same ports for all peers
+		// and as such we run into port issues
+		if i > 0 {
+			break
+		}
 		trial := trial
 		name := fmt.Sprintf("%s-%v", uuid.New().String(), i)
 		errg.Go(func() error {
@@ -197,13 +204,18 @@ func (s *router) postExperimentsCreate(ctx context.Context, w http.ResponseWrite
 			if err != nil {
 				return err
 			}
+			bid := uuid.New().String()
 			benchmark := metadata.Benchmark{
-				ID:       uuid.New().String(),
+				ID:       bid,
 				Status:   metadata.BenchmarkRunning,
 				Cluster:  cluster,
 				Scenario: scenario,
 				Plan:     plan,
-				Labels:   cluster.Labels,
+				Labels: []string{
+					cluster.ID,
+					scenario.ID,
+					bid,
+				},
 			}
 			if benchmark, err = s.db.CreateBenchmark(ctx, benchmark); err != nil {
 				return err
