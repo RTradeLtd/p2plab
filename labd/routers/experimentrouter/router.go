@@ -23,6 +23,7 @@ import (
 
 	"github.com/Netflix/p2plab"
 	"github.com/Netflix/p2plab/daemon"
+	"github.com/Netflix/p2plab/labd/controlapi"
 	"github.com/Netflix/p2plab/labd/routers/helpers"
 	"github.com/Netflix/p2plab/metadata"
 	"github.com/Netflix/p2plab/peer"
@@ -113,30 +114,55 @@ func (s *router) postExperimentsCreate(ctx context.Context, w http.ResponseWrite
 		return err
 	}
 	errg, ctx := errgroup.WithContext(ctx)
-	for _, trial := range exp.Definition.TrialDefinition {
+	for i, trial := range exp.Definition.TrialDefinition {
 		trial := trial
+		name := fmt.Sprintf("%s-%v", uuid.New().String(), i)
 		errg.Go(func() error {
-			cluster, err := s.rhelper.CreateCluster(ctx, trial.Cluster, uuid.New().String(), w)
+			cluster, err := s.rhelper.CreateCluster(ctx, trial.Cluster, name, w)
+			if err != nil {
+				return err
+			}
+			zerolog.Ctx(ctx).Info().Msg("creating scenario")
+			scenID := uuid.New().String()
+			scenario := metadata.Scenario{
+				ID:         scenID,
+				Definition: trial.Scenario,
+				Labels: []string{
+					name,
+				},
+			}
+			scenario, err = s.db.CreateScenario(ctx, scenario)
 			if err != nil {
 				return err
 			}
 			fmt.Printf("%+v\n", cluster)
 			defer func() {
-				fmt.Println("cluster tearing down")
+				zerolog.Ctx(ctx).Info().Msg("tearing down cluster")
 			}()
-			plan, queries, err := scenarios.Plan(ctx, trial.Scenario, s.ts, s.seeder, query.NewLabeledSet())
+			mns, err := s.db.ListNodes(ctx, cluster.ID)
+			if err != nil {
+				return err
+			}
+			var (
+				ns   []p2plab.Node
+				lset = query.NewLabeledSet()
+			)
+			for _, n := range mns {
+				node := controlapi.NewNode(s.client, n)
+				lset.Add(node)
+				ns = append(ns, node)
+			}
+			plan, queries, err := scenarios.Plan(ctx, trial.Scenario, s.ts, s.seeder, lset)
 			if err != nil {
 				return err
 			}
 			if _, err = s.db.CreateBenchmark(ctx, metadata.Benchmark{
-				ID:      uuid.New().String(),
-				Status:  metadata.BenchmarkRunning,
-				Cluster: cluster,
-				Scenario: metadata.Scenario{
-					Definition: trial.Scenario,
-				},
-				Plan:   plan,
-				Labels: cluster.Labels,
+				ID:       uuid.New().String(),
+				Status:   metadata.BenchmarkRunning,
+				Cluster:  cluster,
+				Scenario: scenario,
+				Plan:     plan,
+				Labels:   cluster.Labels,
 			}); err != nil {
 				return err
 			}
