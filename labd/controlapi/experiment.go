@@ -32,7 +32,7 @@ type experimentAPI struct {
 }
 
 func (a *experimentAPI) Create(ctx context.Context, id string, edef metadata.ExperimentDefinition) (p2plab.Experiment, error) {
-	content, err := json.MarshalIndent(&edef, "", "    ")
+	content, err := edef.ToJSONIndent()
 	if err != nil {
 		return nil, err
 	}
