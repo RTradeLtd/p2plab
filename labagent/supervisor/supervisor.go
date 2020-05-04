@@ -165,9 +165,14 @@ func (s *supervisor) wait(ctx context.Context, flags []string) error {
 
 	go func() {
 		<-ctx.Done()
-		err := s.app.Process.Signal(syscall.SIGTERM)
-		if err != nil {
-			zerolog.Ctx(ctx).Error().Err(err).Msg("failed to SIGTERM labapp")
+		if ctx.Err() != nil {
+			zerolog.Ctx(ctx).Error().Err(ctx.Err()).Msg("context error is not nil")
+		}
+		if s.app.Process != nil {
+			err := s.app.Process.Signal(syscall.SIGTERM)
+			if err != nil {
+				zerolog.Ctx(ctx).Error().Err(err).Msg("failed to SIGTERM labapp")
+			}
 		}
 	}()
 
