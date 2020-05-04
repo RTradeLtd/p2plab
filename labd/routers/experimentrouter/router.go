@@ -19,7 +19,10 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
+	"strconv"
 	"strings"
+
+	"github.com/Netflix/p2plab/nodes"
 
 	"github.com/Netflix/p2plab"
 	"github.com/Netflix/p2plab/daemon"
@@ -96,6 +99,15 @@ func (s *router) getExperimentByName(ctx context.Context, w http.ResponseWriter,
 }
 
 func (s *router) postExperimentsCreate(ctx context.Context, w http.ResponseWriter, r *http.Request, vars map[string]string) error {
+	noReset := false
+	if r.FormValue("no-reset") != "" {
+		var err error
+		noReset, err = strconv.ParseBool(r.FormValue("no-reset"))
+		if err != nil {
+			return err
+		}
+	}
+
 	defer r.Body.Close()
 	data, err := ioutil.ReadAll(r.Body)
 	if err != nil {
@@ -151,6 +163,14 @@ func (s *router) postExperimentsCreate(ctx context.Context, w http.ResponseWrite
 				node := controlapi.NewNode(s.client, n)
 				lset.Add(node)
 				ns = append(ns, node)
+			}
+			if !noReset {
+				if err := nodes.Update(ctx, s.builder, ns); err != nil {
+					return errors.Wrap(err, "failed to update cluster")
+				}
+				if err := nodes.Connect(ctx, ns); err != nil {
+					return errors.Wrap(err, "failed to connect cluster")
+				}
 			}
 			plan, queries, err := scenarios.Plan(ctx, trial.Scenario, s.ts, s.seeder, lset)
 			if err != nil {
