@@ -19,10 +19,13 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
+	"os"
 	"strconv"
 	"strings"
 
 	"github.com/Netflix/p2plab/nodes"
+	"github.com/Netflix/p2plab/reports"
+	"github.com/uber/jaeger-client-go"
 
 	"github.com/Netflix/p2plab"
 	"github.com/Netflix/p2plab/daemon"
@@ -148,8 +151,25 @@ func (s *router) postExperimentsCreate(ctx context.Context, w http.ResponseWrite
 				return err
 			}
 			fmt.Printf("%+v\n", cluster)
-			defer func() {
+			defer func() error {
 				zerolog.Ctx(ctx).Info().Msg("tearing down cluster")
+				cluster, err := s.db.GetCluster(ctx, name)
+				if err != nil {
+					return errors.Wrap(err, "failed to get cluster'")
+				}
+				ns, err := s.db.ListNodes(ctx, cluster.ID)
+				if err != nil {
+					return errors.Wrap(err, "failed to list nodes")
+				}
+				ng := &p2plab.NodeGroup{
+					ID:    cluster.ID,
+					Nodes: ns,
+				}
+				if err := s.provider.DestroyNodeGroup(ctx, ng); err != nil {
+					return errors.Wrap(err, "failed to destroy node group")
+				}
+				zerolog.Ctx(ctx).Info().Msg("tore down cluster")
+				return nil
 			}()
 			mns, err := s.db.ListNodes(ctx, cluster.ID)
 			if err != nil {
@@ -176,14 +196,15 @@ func (s *router) postExperimentsCreate(ctx context.Context, w http.ResponseWrite
 			if err != nil {
 				return err
 			}
-			if _, err = s.db.CreateBenchmark(ctx, metadata.Benchmark{
+			benchmark := metadata.Benchmark{
 				ID:       uuid.New().String(),
 				Status:   metadata.BenchmarkRunning,
 				Cluster:  cluster,
 				Scenario: scenario,
 				Plan:     plan,
 				Labels:   cluster.Labels,
-			}); err != nil {
+			}
+			if benchmark, err = s.db.CreateBenchmark(ctx, benchmark); err != nil {
 				return err
 			}
 			var seederAddrs []string
@@ -200,6 +221,14 @@ func (s *router) postExperimentsCreate(ctx context.Context, w http.ResponseWrite
 				},
 				Nodes:   execution.Report,
 				Queries: queries,
+			}
+			report.Aggregates = reports.ComputeAggregates(report.Nodes)
+			jaegerUI := os.Getenv("JAEGER_UI")
+			if jaegerUI != "" {
+				sc, ok := execution.Span.Context().(jaeger.SpanContext)
+				if ok {
+					report.Summary.Trace = fmt.Sprintf("%s/trace/%s", jaegerUI, sc.TraceID())
+				}
 			}
 			fmt.Printf("%+v\n", report)
 			return nil
