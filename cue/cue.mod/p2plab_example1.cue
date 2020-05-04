@@ -44,7 +44,7 @@ scen2:: Scenario & {
             "neighbors": "golang"
         }
         benchmark: {
-            "(and 'neighbors')": "golang"
+//            "(and 'neighbors')": "golang"
             "(not 'neighbors')": "mysql"
         }
 }
