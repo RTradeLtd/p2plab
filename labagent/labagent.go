@@ -47,7 +47,7 @@ func New(root, addr, appRoot, appAddr string, logger *zerolog.Logger, opts ...La
 	if err != nil {
 		return nil, err
 	}
-	loggr := logger.Output(fh)
+	loggr := logger.Output(fh).Level(zerolog.DebugLevel)
 	client, err := httputil.NewClient(httputil.NewHTTPClient(), httputil.WithLogger(&loggr))
 	if err != nil {
 		return nil, err
