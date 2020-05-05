@@ -103,6 +103,8 @@ func (s *router) getExperimentByName(ctx context.Context, w http.ResponseWriter,
 }
 
 func (s *router) postExperimentsCreate(ctx context.Context, w http.ResponseWriter, r *http.Request, vars map[string]string) error {
+	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
 	noReset := false
 	if r.FormValue("no-reset") != "" {
 		var err error
