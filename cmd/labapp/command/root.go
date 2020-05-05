@@ -19,6 +19,7 @@ import (
 	"context"
 	"encoding/base64"
 	"os"
+	"time"
 
 	"github.com/Netflix/p2plab/labapp"
 	"github.com/Netflix/p2plab/metadata"
@@ -105,7 +106,10 @@ func appAction(c *cli.Context) error {
 	if err != nil {
 		return err
 	}
-
+	fh, err := os.Create("root/" + time.Now().String())
+	if err != nil {
+		return err
+	}
 	ctx := cliutil.CommandContext(c)
 	ctx, tracer, closer := traceutil.New(ctx, "labapp", nil)
 	defer closer.Close()
@@ -125,8 +129,8 @@ func appAction(c *cli.Context) error {
 			ctx = opentracing.ContextWithSpan(ctx, span)
 		}
 	}
-
-	app, err := labapp.New(ctx, root, c.GlobalString("address"), c.GlobalInt("libp2p-port"), zerolog.Ctx(ctx), metadata.PeerDefinition{
+	logger := zerolog.Ctx(ctx).Output(fh)
+	app, err := labapp.New(ctx, root, c.GlobalString("address"), c.GlobalInt("libp2p-port"), &logger, metadata.PeerDefinition{
 		Transports:         c.GlobalStringSlice("libp2p-transports"),
 		Muxers:             c.GlobalStringSlice("libp2p-muxers"),
 		SecurityTransports: c.GlobalStringSlice("libp2p-security-transports"),
