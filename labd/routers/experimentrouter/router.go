@@ -260,10 +260,11 @@ func (s *router) postExperimentsCreate(ctx context.Context, w http.ResponseWrite
 
 				return nil
 			})
-			daemon.WriteJSON(w, report)
+			exp.Reports = append(exp.Reports, report)
 			return err
 		})
 	}
+	daemon.WriteJSON(w, &exp)
 	return errg.Wait()
 }
 
