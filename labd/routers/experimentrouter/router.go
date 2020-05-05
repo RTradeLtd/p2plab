@@ -40,8 +40,8 @@ import (
 	"github.com/Netflix/p2plab/scenarios"
 	"github.com/Netflix/p2plab/transformers"
 	"github.com/containerd/containerd/errdefs"
-	"github.com/google/uuid"
 	"github.com/pkg/errors"
+	"github.com/rs/xid"
 	"github.com/rs/zerolog"
 	"golang.org/x/sync/errgroup"
 )
@@ -124,7 +124,7 @@ func (s *router) postExperimentsCreate(ctx context.Context, w http.ResponseWrite
 		return err
 	}
 	exp, err := s.db.CreateExperiment(ctx, metadata.Experiment{
-		ID:         uuid.New().String(),
+		ID:         xid.New().String(),
 		Definition: edef,
 		Status:     metadata.ExperimentRunning,
 	})
@@ -141,14 +141,14 @@ func (s *router) postExperimentsCreate(ctx context.Context, w http.ResponseWrite
 			break
 		}
 		trial := trial
-		name := fmt.Sprintf("%s-%v", uuid.New().String(), i)
+		name := fmt.Sprintf("%s-%v", xid.New().String(), i)
 		errg.Go(func() error {
 			cluster, err := s.rhelper.CreateCluster(ctx, trial.Cluster, name, w)
 			if err != nil {
 				return err
 			}
 			zerolog.Ctx(ctx).Info().Msg("creating scenario")
-			scenID := uuid.New().String()
+			scenID := xid.New().String()
 			scenario := metadata.Scenario{
 				ID:         scenID,
 				Definition: trial.Scenario,
@@ -206,7 +206,7 @@ func (s *router) postExperimentsCreate(ctx context.Context, w http.ResponseWrite
 			if err != nil {
 				return err
 			}
-			bid := uuid.New().String()
+			bid := xid.New().String()
 			benchmark := metadata.Benchmark{
 				ID:       bid,
 				Status:   metadata.BenchmarkRunning,
