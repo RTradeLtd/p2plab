@@ -38,6 +38,22 @@ type Experiment struct {
 	Reports []Report
 }
 
+// ToJSONIndent is like to ToJSON but formats the json data
+func (e *Experiment) ToJSONIndent() ([]byte, error) {
+	return json.MarshalIndent(e, "", "    ")
+}
+
+// ToJSON is a helper function to convert an Experiment
+// into it's JSON representation
+func (e *Experiment) ToJSON() ([]byte, error) {
+	return json.Marshal(e)
+}
+
+// FromJSON loads the experiment definition with the values from data
+func (e *Experiment) FromJSON(data []byte) error {
+	return json.Unmarshal(data, e)
+}
+
 type ExperimentStatus string
 
 var (
@@ -54,6 +70,7 @@ type ExperimentDefinition struct {
 
 type IndependentVariable map[string]interface{}
 
+// ToJSONIndent is like to ToJSON but formats the json data
 func (ed *ExperimentDefinition) ToJSONIndent() ([]byte, error) {
 	return json.MarshalIndent(ed, "", "    ")
 }
