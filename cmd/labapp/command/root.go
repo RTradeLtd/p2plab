@@ -113,7 +113,10 @@ func appAction(c *cli.Context) error {
 	ctx := cliutil.CommandContext(c)
 	ctx, tracer, closer := traceutil.New(ctx, "labapp", nil)
 	defer closer.Close()
-
+	go func() {
+		<-ctx.Done()
+		fh.Close()
+	}()
 	if c.IsSet("trace") {
 		trace, err := base64.StdEncoding.DecodeString(c.GlobalString("trace"))
 		if err != nil {
