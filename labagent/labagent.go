@@ -17,6 +17,7 @@ package labagent
 import (
 	"context"
 	"io"
+	"os"
 	"path/filepath"
 
 	"github.com/Netflix/p2plab/daemon"
@@ -41,8 +42,13 @@ func New(root, addr, appRoot, appAddr string, logger *zerolog.Logger, opts ...La
 			return nil, err
 		}
 	}
-
-	client, err := httputil.NewClient(httputil.NewHTTPClient(), httputil.WithLogger(logger))
+	os.MkdirAll(root, 0711)
+	fh, err := os.Create(root + "/labagent.log")
+	if err != nil {
+		return nil, err
+	}
+	loggr := logger.Output(fh)
+	client, err := httputil.NewClient(httputil.NewHTTPClient(), httputil.WithLogger(&loggr))
 	if err != nil {
 		return nil, err
 	}
@@ -56,7 +62,8 @@ func New(root, addr, appRoot, appAddr string, logger *zerolog.Logger, opts ...La
 	}
 
 	var closers []io.Closer
-	daemon, err := daemon.New("labagent", addr, logger,
+	closers = append(closers, fh)
+	daemon, err := daemon.New("labagent", addr, &loggr,
 		healthcheckrouter.New(),
 		agentrouter.New(appAddr, s),
 	)
