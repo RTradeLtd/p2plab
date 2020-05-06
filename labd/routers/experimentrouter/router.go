@@ -18,7 +18,6 @@ import (
 	"context"
 	"fmt"
 	"io/ioutil"
-	"log"
 	"net/http"
 	"os"
 	"strconv"
@@ -267,9 +266,6 @@ func (s *router) postExperimentsCreate(ctx context.Context, w http.ResponseWrite
 			exp.Reports = append(exp.Reports, report)
 			return err
 		})
-	}
-	if len(exp.Reports) == 0 {
-		log.Fatal("no reports found")
 	}
 	err = errg.Wait()
 	daemon.WriteJSON(w, &exp)
