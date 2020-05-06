@@ -18,6 +18,7 @@ import (
 	"context"
 	"fmt"
 	"io/ioutil"
+	"log"
 	"net/http"
 	"os"
 	"strconv"
@@ -262,12 +263,17 @@ func (s *router) postExperimentsCreate(ctx context.Context, w http.ResponseWrite
 
 				return nil
 			})
+			fmt.Printf("%v\n", report)
 			exp.Reports = append(exp.Reports, report)
 			return err
 		})
 	}
+	if len(exp.Reports) == 0 {
+		log.Fatal("no reports found")
+	}
+	err := errg.Wait()
 	daemon.WriteJSON(w, &exp)
-	return errg.Wait()
+	return err
 }
 
 func (s *router) putExperimentsLabel(ctx context.Context, w http.ResponseWriter, r *http.Request, vars map[string]string) error {
