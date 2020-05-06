@@ -271,7 +271,7 @@ func (s *router) postExperimentsCreate(ctx context.Context, w http.ResponseWrite
 	if len(exp.Reports) == 0 {
 		log.Fatal("no reports found")
 	}
-	err := errg.Wait()
+	err = errg.Wait()
 	daemon.WriteJSON(w, &exp)
 	return err
 }
