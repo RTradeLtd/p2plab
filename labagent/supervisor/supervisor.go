@@ -77,8 +77,10 @@ func New(root, appRoot, appAddr string, client *httputil.Client, fs *downloaders
 }
 
 func (s *supervisor) Supervise(ctx context.Context, id, link string, pdef metadata.PeerDefinition) error {
+	zerolog.Ctx(ctx).Info().Msg("starting supervise process")
 	err := s.kill(ctx)
 	if err != nil {
+		zerolog.Ctx(ctx).Error().Err(err).Msg("failed to kill processes")
 		return err
 	}
 
@@ -125,6 +127,7 @@ func (s *supervisor) peerDefinitionToFlags(id string, pdef metadata.PeerDefiniti
 }
 
 func (s *supervisor) start(ctx context.Context, flags []string) error {
+	zerolog.Ctx(ctx).Info().Msg("entered start")
 	var actx context.Context
 	actx, s.cancel = context.WithCancel(context.Background())
 	s.app = s.cmd(actx, flags...)
@@ -134,7 +137,7 @@ func (s *supervisor) start(ctx context.Context, flags []string) error {
 	}
 
 	v := new(bytes.Buffer)
-	versionCmd := s.cmdWithStdio(ctx, v, ioutil.Discard, "--version")
+	versionCmd := s.cmdWithStdio(actx, v, ioutil.Discard, "--version")
 	err = versionCmd.Run()
 	if err != nil {
 		return err
