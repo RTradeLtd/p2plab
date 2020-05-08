@@ -1,9 +1,11 @@
 package inmemory
 
 import (
+	"context"
 	"sync"
 
 	"github.com/phayes/freeport"
+	"github.com/rs/zerolog"
 )
 
 // portHelper enables synchronizing access to free ports
@@ -14,17 +16,20 @@ type portHelper struct {
 	mux   sync.Mutex
 }
 
-func (ph *portHelper) getPorts(num int) (int, int, error) {
+func (ph *portHelper) getPorts(ctx context.Context, num int) (int, int, error) {
 	ph.mux.Lock()
 	defer ph.mux.Unlock()
 	for {
+		zerolog.Ctx(ctx).Info().Msg("getting free ports")
 		freePorts, err := freeport.GetFreePorts(2)
 		if err != nil {
 			return 0, 0, err
 		}
 		if ph.inUse[freePorts[0]] || ph.inUse[freePorts[1]] {
+			zerolog.Ctx(ctx).Warn().Msgf("got in use ports, %v and %v, trying again", freePorts[0], freePorts[1])
 			continue
 		}
+		zerolog.Ctx(ctx).Info().Msg("found available ports")
 		ph.inUse[freePorts[0]] = true
 		ph.inUse[freePorts[1]] = true
 		return freePorts[0], freePorts[1], nil

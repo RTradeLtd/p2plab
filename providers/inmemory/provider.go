@@ -77,7 +77,7 @@ func (p *provider) CreateNodeGroup(ctx context.Context, id string, cdef metadata
 	var ns []metadata.Node
 	for _, group := range cdef.Groups {
 		for i := 0; i < group.Size; i++ {
-			agentPort, appPort, err := p.portHelper.getPorts(2)
+			agentPort, appPort, err := p.portHelper.getPorts(ctx, 2)
 			if err != nil {
 				return nil, err
 			}
