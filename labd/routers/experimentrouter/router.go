@@ -143,11 +143,12 @@ func (s *router) postExperimentsCreate(ctx context.Context, w http.ResponseWrite
 		trial := trial
 		name := fmt.Sprintf("%s-%v", xid.New().String(), i)
 		errg.Go(func() error {
+			info := zerolog.Ctx(ctx).Info()
 			cluster, err := s.rhelper.CreateCluster(ctx, trial.Cluster, name, w)
 			if err != nil {
 				return err
 			}
-			zerolog.Ctx(ctx).Info().Msg("creating scenario")
+			info.Msg("creating scenario")
 			scenID := xid.New().String()
 			scenario := metadata.Scenario{
 				ID:         scenID,
@@ -160,9 +161,8 @@ func (s *router) postExperimentsCreate(ctx context.Context, w http.ResponseWrite
 			if err != nil {
 				return err
 			}
-			fmt.Printf("%+v\n", cluster)
 			defer func() error {
-				zerolog.Ctx(ctx).Info().Msg("tearing down cluster")
+				info.Msg("tearing down cluster")
 				cluster, err := s.db.GetCluster(ctx, name)
 				if err != nil {
 					return errors.Wrap(err, "failed to get cluster'")
@@ -178,9 +178,10 @@ func (s *router) postExperimentsCreate(ctx context.Context, w http.ResponseWrite
 				if err := s.provider.DestroyNodeGroup(ctx, ng); err != nil {
 					return errors.Wrap(err, "failed to destroy node group")
 				}
-				zerolog.Ctx(ctx).Info().Msg("tore down cluster")
+				info.Msg("tore down cluster")
 				return nil
 			}()
+			info.Msg("creating nodes")
 			mns, err := s.db.ListNodes(ctx, cluster.ID)
 			if err != nil {
 				return err
@@ -195,13 +196,16 @@ func (s *router) postExperimentsCreate(ctx context.Context, w http.ResponseWrite
 				ns = append(ns, node)
 			}
 			if !noReset {
+				info.Msg("updating nodes")
 				if err := nodes.Update(ctx, s.builder, ns); err != nil {
 					return errors.Wrap(err, "failed to update cluster")
 				}
+				info.Msg("connecting nodes")
 				if err := nodes.Connect(ctx, ns); err != nil {
 					return errors.Wrap(err, "failed to connect cluster")
 				}
 			}
+			info.Msg("generating scenario plan")
 			plan, queries, err := scenarios.Plan(ctx, trial.Scenario, s.ts, s.seeder, lset)
 			if err != nil {
 				return err
@@ -219,6 +223,7 @@ func (s *router) postExperimentsCreate(ctx context.Context, w http.ResponseWrite
 					bid,
 				},
 			}
+			info.Msg("creating benchmark")
 			if benchmark, err = s.db.CreateBenchmark(ctx, benchmark); err != nil {
 				return err
 			}
@@ -226,6 +231,7 @@ func (s *router) postExperimentsCreate(ctx context.Context, w http.ResponseWrite
 			for _, addr := range s.seeder.Host().Addrs() {
 				seederAddrs = append(seederAddrs, fmt.Sprintf("%s/p2p/%s", addr, s.seeder.Host().ID()))
 			}
+			info.Msg("running scenario")
 			execution, err := scenarios.Run(ctx, lset, plan, seederAddrs)
 			if err != nil {
 				return errors.Wrap(err, "failed to run scenario plan")
@@ -237,6 +243,7 @@ func (s *router) postExperimentsCreate(ctx context.Context, w http.ResponseWrite
 				Nodes:   execution.Report,
 				Queries: queries,
 			}
+			info.Msg("aggregating results")
 			report.Aggregates = reports.ComputeAggregates(report.Nodes)
 			jaegerUI := os.Getenv("JAEGER_UI")
 			if jaegerUI != "" {
@@ -245,7 +252,7 @@ func (s *router) postExperimentsCreate(ctx context.Context, w http.ResponseWrite
 					report.Summary.Trace = fmt.Sprintf("%s/trace/%s", jaegerUI, sc.TraceID())
 				}
 			}
-			zerolog.Ctx(ctx).Info().Msg("Updating benchmark metadata")
+			info.Msg("Updating benchmark metadata")
 			err = s.db.Update(ctx, func(tx *bolt.Tx) error {
 				tctx := metadata.WithTransactionContext(ctx, tx)
 
