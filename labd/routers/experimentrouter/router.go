@@ -269,6 +269,7 @@ func (s *router) postExperimentsCreate(ctx context.Context, w http.ResponseWrite
 
 				return nil
 			})
+			info.Msg("updating reports")
 			exp.Reports = append(exp.Reports, report)
 			return err
 		})
