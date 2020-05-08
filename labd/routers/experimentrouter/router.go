@@ -137,9 +137,9 @@ func (s *router) postExperimentsCreate(ctx context.Context, w http.ResponseWrite
 		// with port numbers being re-used. For example when we start the goroutines
 		// for each of the benchmarks they use the same ports for all peers
 		// and as such we run into port issues
-		if i > 0 {
-			break
-		}
+		//if i > 0 {
+		//	break
+		//}
 		trial := trial
 		name := fmt.Sprintf("%s-%v", xid.New().String(), i)
 		errg.Go(func() error {

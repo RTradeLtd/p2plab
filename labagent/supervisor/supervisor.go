@@ -76,12 +76,12 @@ func New(root, appRoot, appAddr string, client *httputil.Client, fs *downloaders
 	}, nil
 }
 
-func (s *supervisor) Supervise(ctx context.Context, id, link string, pdef metadata.PeerDefinition) error {
-	err := s.kill(ctx)
+func (s *supervisor) Supervise(ctx context.Context, id, link string, pdef metadata.PeerDefinition) (err error) {
+	/*err := s.kill(ctx)
 	if err != nil {
 		return err
 	}
-
+	*/
 	flags := s.peerDefinitionToFlags(id, pdef)
 	if link != "" {
 		err = s.atomicReplaceBinary(ctx, link)
