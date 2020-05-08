@@ -120,6 +120,7 @@ func (p *provider) DestroyNodeGroup(ctx context.Context, ng *p2plab.NodeGroup) e
 	for _, n := range p.nodes[ng.ID] {
 		err := n.Close()
 		if err != nil {
+			p.logger.Error().Err(err).Str("node.id", n.ID).Msg("error encountered while destroying node group")
 			return err
 		}
 		p.portHelper.returnPorts(ctx, []int{n.AgentPort, n.AppPort})
