@@ -23,16 +23,16 @@ import (
 	"github.com/Netflix/p2plab"
 	"github.com/Netflix/p2plab/labagent"
 	"github.com/Netflix/p2plab/metadata"
-	"github.com/phayes/freeport"
 	"github.com/rs/xid"
 	"github.com/rs/zerolog"
 )
 
 type provider struct {
-	root      string
-	nodes     map[string][]*node
-	logger    *zerolog.Logger
-	agentOpts []labagent.LabagentOption
+	root       string
+	nodes      map[string][]*node
+	logger     *zerolog.Logger
+	agentOpts  []labagent.LabagentOption
+	portHelper *portHelper
 }
 
 func New(root string, db metadata.DB, logger *zerolog.Logger, agentOpts ...labagent.LabagentOption) (p2plab.NodeProvider, error) {
@@ -42,10 +42,11 @@ func New(root string, db metadata.DB, logger *zerolog.Logger, agentOpts ...labag
 	}
 
 	p := &provider{
-		root:      root,
-		nodes:     make(map[string][]*node),
-		logger:    logger,
-		agentOpts: agentOpts,
+		root:       root,
+		nodes:      make(map[string][]*node),
+		logger:     logger,
+		agentOpts:  agentOpts,
+		portHelper: &portHelper{inUse: make(map[int]bool)},
 	}
 
 	ctx := context.Background()
@@ -76,12 +77,10 @@ func (p *provider) CreateNodeGroup(ctx context.Context, id string, cdef metadata
 	var ns []metadata.Node
 	for _, group := range cdef.Groups {
 		for i := 0; i < group.Size; i++ {
-			freePorts, err := freeport.GetFreePorts(2)
+			agentPort, appPort, err := p.portHelper.getPorts(2)
 			if err != nil {
 				return nil, err
 			}
-			agentPort, appPort := freePorts[0], freePorts[1]
-
 			id := xid.New().String()
 			n, err := p.newNode(id, agentPort, appPort)
 			if err != nil {
