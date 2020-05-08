@@ -33,6 +33,7 @@ type provider struct {
 	logger     *zerolog.Logger
 	agentOpts  []labagent.LabagentOption
 	portHelper *portHelper
+	logFile    *os.File
 }
 
 func New(root string, db metadata.DB, logger *zerolog.Logger, agentOpts ...labagent.LabagentOption) (p2plab.NodeProvider, error) {
@@ -40,13 +41,19 @@ func New(root string, db metadata.DB, logger *zerolog.Logger, agentOpts ...labag
 	if err != nil {
 		return nil, err
 	}
-
+	fh, err := os.Create(root + "/provider.log")
+	if err != nil {
+		return nil, err
+	}
+	lgr := logger.Output(fh).Level(zerolog.DebugLevel)
+	loggr := &lgr
 	p := &provider{
 		root:       root,
 		nodes:      make(map[string][]*node),
-		logger:     logger,
+		logger:     loggr,
 		agentOpts:  agentOpts,
 		portHelper: &portHelper{inUse: make(map[int]bool)},
+		logFile:    fh,
 	}
 
 	ctx := context.Background()
