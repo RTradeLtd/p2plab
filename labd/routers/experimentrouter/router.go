@@ -133,17 +133,11 @@ func (s *router) postExperimentsCreate(ctx context.Context, w http.ResponseWrite
 	}
 	errg, ctx := errgroup.WithContext(ctx)
 	for _, trial := range exp.Definition.TrialDefinition {
-		// TODO(bonedaddy): if we dont do this, then we run into some issues
-		// with port numbers being re-used. For example when we start the goroutines
-		// for each of the benchmarks they use the same ports for all peers
-		// and as such we run into port issues
-		//if i > 0 {
-		//	break
-		//}
 		trial := trial
 		name := xid.New().String()
 		errg.Go(func() error {
 			info := zerolog.Ctx(ctx).Info()
+			info.Msg("creating cluster")
 			cluster, err := s.rhelper.CreateCluster(ctx, trial.Cluster, name, w)
 			if err != nil {
 				return err
