@@ -115,6 +115,7 @@ func (p *provider) DestroyNodeGroup(ctx context.Context, ng *p2plab.NodeGroup) e
 		if err != nil {
 			return err
 		}
+		p.portHelper.returnPorts(ctx, []int{n.AgentPort, n.AppPort})
 	}
 
 	delete(p.nodes, ng.ID)

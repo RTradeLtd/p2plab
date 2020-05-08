@@ -35,3 +35,22 @@ func (ph *portHelper) getPorts(ctx context.Context, num int) (int, int, error) {
 		return freePorts[0], freePorts[1], nil
 	}
 }
+
+func (ph *portHelper) returnPorts(ctx context.Context, ports []int) {
+	ph.mux.Lock()
+	defer ph.mux.Unlock()
+	returned := 0
+	for _, port := range ports {
+		if !ph.inUse[port] {
+			zerolog.Ctx(ctx).Warn().Msg("trying to return unused port")
+			continue
+		}
+		ph.inUse[port] = false
+		returned++
+	}
+	if returned == 0 {
+		zerolog.Ctx(ctx).Warn().Msg("no ports retruend")
+	} else {
+		zerolog.Ctx(ctx).Info().Msgf("successfully returned %v ports", returned)
+	}
+}
