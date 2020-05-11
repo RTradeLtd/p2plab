@@ -43,12 +43,7 @@ func New(root, addr, appRoot, appAddr string, logger *zerolog.Logger, opts ...La
 		}
 	}
 	os.MkdirAll(root, 0711)
-	fh, err := os.Create(root + "/labagent.log")
-	if err != nil {
-		return nil, err
-	}
-	loggr := logger.Output(fh).Level(zerolog.DebugLevel)
-	client, err := httputil.NewClient(httputil.NewHTTPClient(), httputil.WithLogger(&loggr))
+	client, err := httputil.NewClient(httputil.NewHTTPClient(), httputil.WithLogger(logger))
 	if err != nil {
 		return nil, err
 	}
@@ -62,8 +57,7 @@ func New(root, addr, appRoot, appAddr string, logger *zerolog.Logger, opts ...La
 	}
 
 	var closers []io.Closer
-	closers = append(closers, fh)
-	daemon, err := daemon.New("labagent", addr, &loggr,
+	daemon, err := daemon.New("labagent", addr, logger,
 		healthcheckrouter.New(),
 		agentrouter.New(appAddr, s),
 	)
