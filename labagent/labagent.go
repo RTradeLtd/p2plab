@@ -17,7 +17,6 @@ package labagent
 import (
 	"context"
 	"io"
-	"os"
 	"path/filepath"
 
 	"github.com/Netflix/p2plab/daemon"
@@ -42,7 +41,7 @@ func New(root, addr, appRoot, appAddr string, logger *zerolog.Logger, opts ...La
 			return nil, err
 		}
 	}
-	os.MkdirAll(root, 0711)
+
 	client, err := httputil.NewClient(httputil.NewHTTPClient(), httputil.WithLogger(logger))
 	if err != nil {
 		return nil, err
