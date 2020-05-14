@@ -41,10 +41,9 @@ scen1:: Scenario & {
 scen2:: Scenario & {
         objects:  [ items ]
         seed: {
-            "neighbors": "golang"
+            "neighbors": "mysql"
         }
         benchmark: {
-//            "(and 'neighbors')": "golang"
             "(not 'neighbors')": "mysql"
         }
 }
@@ -60,5 +59,4 @@ experiment: Experiment & {
             scenario: scen2
         }
     ]
-//    trials: [[clust1,scen1],[clust1,scen2]]
 }

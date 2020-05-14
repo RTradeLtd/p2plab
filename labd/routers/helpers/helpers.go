@@ -2,13 +2,13 @@ package helpers
 
 import (
 	"context"
-	"net/http"
 
 	"github.com/Netflix/p2plab"
 	"github.com/Netflix/p2plab/labd/controlapi"
 	"github.com/Netflix/p2plab/metadata"
 	"github.com/Netflix/p2plab/nodes"
 	"github.com/Netflix/p2plab/pkg/httputil"
+	"github.com/pkg/errors"
 	"github.com/rs/zerolog"
 	bolt "go.etcd.io/bbolt"
 )
@@ -28,7 +28,7 @@ func New(db metadata.DB, provider p2plab.NodeProvider, client *httputil.Client) 
 }
 
 // CreateCluster enables creating the nodes in a cluster, waiting for them to be healthy before returning
-func (h *Helper) CreateCluster(ctx context.Context, cdef metadata.ClusterDefinition, name string, w http.ResponseWriter) (metadata.Cluster, error) {
+func (h *Helper) CreateCluster(ctx context.Context, cdef metadata.ClusterDefinition, name string) (metadata.Cluster, error) {
 	var (
 		cluster = metadata.Cluster{
 			ID:         name,
@@ -52,13 +52,13 @@ func (h *Helper) CreateCluster(ctx context.Context, cdef metadata.ClusterDefinit
 	if err != nil {
 		return cluster, err
 	}
-	zerolog.Ctx(ctx).Info().Msg("creating node group")
+
+	zerolog.Ctx(ctx).Info().Str("cid", name).Msg("Creating node group")
 	ng, err := h.provider.CreateNodeGroup(ctx, name, cdef)
 	if err != nil {
 		return cluster, err
 	}
 
-	zerolog.Ctx(ctx).Info().Msg("updating metadata with new nodes")
 	var mns []metadata.Node
 	cluster.Status = metadata.ClusterConnecting
 	if err := h.db.Update(ctx, func(tx *bolt.Tx) error {
@@ -88,7 +88,49 @@ func (h *Helper) CreateCluster(ctx context.Context, cdef metadata.ClusterDefinit
 		return cluster, err
 	}
 
-	zerolog.Ctx(ctx).Info().Msg("updating cluster metadata")
 	cluster.Status = metadata.ClusterCreated
 	return h.db.UpdateCluster(ctx, cluster)
+}
+
+func (h *Helper) DeleteCluster(ctx context.Context, name string) error {
+	logger := zerolog.Ctx(ctx).With().Str("name", name).Logger()
+	ctx = logger.WithContext(ctx)
+
+	cluster, err := h.db.GetCluster(ctx, name)
+	if err != nil {
+		return errors.Wrapf(err, "failed to get cluster %q", name)
+	}
+
+	if cluster.Status != metadata.ClusterDestroying {
+		cluster.Status = metadata.ClusterDestroying
+		cluster, err = h.db.UpdateCluster(ctx, cluster)
+		if err != nil {
+			return errors.Wrap(err, "failed to update cluster status to destroying")
+		}
+	}
+
+	ns, err := h.db.ListNodes(ctx, cluster.ID)
+	if err != nil {
+		return errors.Wrap(err, "failed to list nodes")
+	}
+
+	ng := &p2plab.NodeGroup{
+		ID:    cluster.ID,
+		Nodes: ns,
+	}
+
+	logger.Info().Msg("Destroying node group")
+	err = h.provider.DestroyNodeGroup(ctx, ng)
+	if err != nil {
+		return errors.Wrap(err, "failed to destroy node group")
+	}
+
+	logger.Info().Msg("Deleting cluster metadata")
+	err = h.db.DeleteCluster(ctx, cluster.ID)
+	if err != nil {
+		return errors.Wrap(err, "failed to delete cluster metadata")
+	}
+
+	logger.Info().Msg("Destroyed cluster")
+	return nil
 }

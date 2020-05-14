@@ -19,21 +19,22 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"sync"
 
 	"github.com/Netflix/p2plab"
 	"github.com/Netflix/p2plab/labagent"
 	"github.com/Netflix/p2plab/metadata"
+	"github.com/phayes/freeport"
 	"github.com/rs/xid"
 	"github.com/rs/zerolog"
 )
 
 type provider struct {
-	root       string
-	nodes      map[string][]*node
-	logger     *zerolog.Logger
-	agentOpts  []labagent.LabagentOption
-	portHelper *portHelper
-	logFile    *os.File
+	root      string
+	nodes     map[string][]*node
+	logger    *zerolog.Logger
+	agentOpts []labagent.LabagentOption
+	mu        sync.Mutex
 }
 
 func New(root string, db metadata.DB, logger *zerolog.Logger, agentOpts ...labagent.LabagentOption) (p2plab.NodeProvider, error) {
@@ -41,19 +42,11 @@ func New(root string, db metadata.DB, logger *zerolog.Logger, agentOpts ...labag
 	if err != nil {
 		return nil, err
 	}
-	fh, err := os.Create(root + "/provider.log")
-	if err != nil {
-		return nil, err
-	}
-	lgr := logger.Output(fh).Level(zerolog.DebugLevel)
-	loggr := &lgr
 	p := &provider{
-		root:       root,
-		nodes:      make(map[string][]*node),
-		logger:     loggr,
-		agentOpts:  agentOpts,
-		portHelper: &portHelper{inUse: make(map[int]bool)},
-		logFile:    fh,
+		root:      root,
+		nodes:     make(map[string][]*node),
+		logger:    logger,
+		agentOpts: agentOpts,
 	}
 
 	ctx := context.Background()
@@ -81,13 +74,28 @@ func New(root string, db metadata.DB, logger *zerolog.Logger, agentOpts ...labag
 }
 
 func (p *provider) CreateNodeGroup(ctx context.Context, id string, cdef metadata.ClusterDefinition) (*p2plab.NodeGroup, error) {
-	var ns []metadata.Node
+	p.mu.Lock()
+	defer p.mu.Unlock()
+
+	numPorts := 0
+	for _, group := range cdef.Groups {
+		numPorts += group.Size
+	}
+
+	freePorts, err := freeport.GetFreePorts(numPorts * 2)
+	if err != nil {
+		return nil, err
+	}
+
+	var (
+		ns        []metadata.Node
+		portIndex = 0
+	)
 	for _, group := range cdef.Groups {
 		for i := 0; i < group.Size; i++ {
-			agentPort, appPort, err := p.portHelper.getPorts(ctx, 2)
-			if err != nil {
-				return nil, err
-			}
+			agentPort, appPort := freePorts[portIndex], freePorts[portIndex+1]
+			portIndex += 2
+
 			id := xid.New().String()
 			n, err := p.newNode(id, agentPort, appPort)
 			if err != nil {
@@ -123,7 +131,6 @@ func (p *provider) DestroyNodeGroup(ctx context.Context, ng *p2plab.NodeGroup) e
 			p.logger.Error().Err(err).Str("node.id", n.ID).Msg("error encountered while destroying node group")
 			return err
 		}
-		p.portHelper.returnPorts(ctx, []int{n.AgentPort, n.AppPort})
 	}
 
 	delete(p.nodes, ng.ID)
@@ -141,9 +148,17 @@ type node struct {
 func (p *provider) newNode(id string, agentPort, appPort int) (*node, error) {
 	agentRoot := filepath.Join(p.root, id, "labagent")
 	agentAddr := fmt.Sprintf(":%d", agentPort)
+	err := os.MkdirAll(agentRoot, 0711)
+	if err != nil {
+		return nil, err
+	}
 
 	appRoot := filepath.Join(p.root, id, "labapp")
 	appAddr := fmt.Sprintf("http://localhost:%d", appPort)
+	err = os.MkdirAll(appRoot, 0711)
+	if err != nil {
+		return nil, err
+	}
 
 	la, err := labagent.New(agentRoot, agentAddr, appRoot, appAddr, p.logger, p.agentOpts...)
 	if err != nil {

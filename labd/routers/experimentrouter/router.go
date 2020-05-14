@@ -16,33 +16,33 @@ package experimentrouter
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
-	"io/ioutil"
 	"net/http"
 	"os"
-	"strconv"
 	"strings"
-
-	"github.com/Netflix/p2plab/nodes"
-	"github.com/Netflix/p2plab/reports"
-	"github.com/uber/jaeger-client-go"
-	bolt "go.etcd.io/bbolt"
+	"sync"
 
 	"github.com/Netflix/p2plab"
 	"github.com/Netflix/p2plab/daemon"
 	"github.com/Netflix/p2plab/labd/controlapi"
 	"github.com/Netflix/p2plab/labd/routers/helpers"
 	"github.com/Netflix/p2plab/metadata"
+	"github.com/Netflix/p2plab/nodes"
 	"github.com/Netflix/p2plab/peer"
 	"github.com/Netflix/p2plab/pkg/httputil"
+	"github.com/Netflix/p2plab/pkg/logutil"
 	"github.com/Netflix/p2plab/pkg/stringutil"
 	"github.com/Netflix/p2plab/query"
+	"github.com/Netflix/p2plab/reports"
 	"github.com/Netflix/p2plab/scenarios"
 	"github.com/Netflix/p2plab/transformers"
 	"github.com/containerd/containerd/errdefs"
 	"github.com/pkg/errors"
 	"github.com/rs/xid"
 	"github.com/rs/zerolog"
+	jaeger "github.com/uber/jaeger-client-go"
+	bolt "go.etcd.io/bbolt"
 	"golang.org/x/sync/errgroup"
 )
 
@@ -73,7 +73,7 @@ func (s *router) Routes() []daemon.Route {
 	return []daemon.Route{
 		// GET
 		daemon.NewGetRoute("/experiments/json", s.getExperiments),
-		daemon.NewGetRoute("/experiments/{id}/json", s.getExperimentByName),
+		daemon.NewGetRoute("/experiments/{id}/json", s.getExperimentByID),
 		// POST
 		daemon.NewPostRoute("/experiments/create", s.postExperimentsCreate),
 		// PUT
@@ -92,8 +92,8 @@ func (s *router) getExperiments(ctx context.Context, w http.ResponseWriter, r *h
 	return daemon.WriteJSON(w, &experiments)
 }
 
-func (s *router) getExperimentByName(ctx context.Context, w http.ResponseWriter, r *http.Request, vars map[string]string) error {
-	id := vars["name"]
+func (s *router) getExperimentByID(ctx context.Context, w http.ResponseWriter, r *http.Request, vars map[string]string) error {
+	id := vars["id"]
 	experiment, err := s.db.GetExperiment(ctx, id)
 	if err != nil {
 		return err
@@ -103,83 +103,57 @@ func (s *router) getExperimentByName(ctx context.Context, w http.ResponseWriter,
 }
 
 func (s *router) postExperimentsCreate(ctx context.Context, w http.ResponseWriter, r *http.Request, vars map[string]string) error {
-	ctx, cancel := context.WithCancel(ctx)
-	defer cancel()
-	noReset := false
-	if r.FormValue("no-reset") != "" {
-		var err error
-		noReset, err = strconv.ParseBool(r.FormValue("no-reset"))
-		if err != nil {
-			return err
-		}
-	}
-
-	defer r.Body.Close()
-	data, err := ioutil.ReadAll(r.Body)
+	var edef metadata.ExperimentDefinition
+	err := json.NewDecoder(r.Body).Decode(&edef)
 	if err != nil {
 		return err
 	}
-	var edef metadata.ExperimentDefinition
-	if err := edef.FromJSON(data); err != nil {
-		return err
-	}
-	exp, err := s.db.CreateExperiment(ctx, metadata.Experiment{
-		ID:         xid.New().String(),
+
+	eid := xid.New().String()
+	w.Header().Add(controlapi.ResourceID, eid)
+
+	ctx, logger := logutil.WithResponseLogger(ctx, w)
+	logger.UpdateContext(func(c zerolog.Context) zerolog.Context {
+		return c.Str("eid", eid)
+	})
+
+	experiment, err := s.db.CreateExperiment(ctx, metadata.Experiment{
+		ID:         eid,
 		Definition: edef,
 		Status:     metadata.ExperimentRunning,
 	})
 	if err != nil {
 		return err
 	}
-	errg, ctx := errgroup.WithContext(ctx)
-	for _, trial := range exp.Definition.TrialDefinition {
-		trial := trial
-		name := xid.New().String()
-		errg.Go(func() error {
-			info := zerolog.Ctx(ctx).Info()
-			info.Msg("creating cluster")
-			cluster, err := s.rhelper.CreateCluster(ctx, trial.Cluster, name, w)
+
+	var seederAddrs []string
+	for _, addr := range s.seeder.Host().Addrs() {
+		seederAddrs = append(seederAddrs, fmt.Sprintf("%s/p2p/%s", addr, s.seeder.Host().ID()))
+	}
+
+	var mu sync.Mutex
+	experiment.Reports = make([]metadata.Report, len(experiment.Definition.Trials))
+
+	eg, ctx := errgroup.WithContext(ctx)
+	for i, trial := range experiment.Definition.Trials {
+		i, trial := i, trial
+		name := fmt.Sprintf("experiment_%s_trial_%d", eid, i)
+
+		eg.Go(func() error {
+			cluster, err := s.rhelper.CreateCluster(ctx, trial.Cluster, name)
 			if err != nil {
 				return err
 			}
-			info.Msg("creating scenario")
-			scenID := xid.New().String()
-			scenario := metadata.Scenario{
-				ID:         scenID,
-				Definition: trial.Scenario,
-				Labels: []string{
-					name,
-				},
-			}
-			scenario, err = s.db.CreateScenario(ctx, scenario)
-			if err != nil {
-				return err
-			}
+
 			defer func() error {
-				info.Msg("tearing down cluster")
-				cluster, err := s.db.GetCluster(ctx, name)
-				if err != nil {
-					return errors.Wrap(err, "failed to get cluster'")
-				}
-				ns, err := s.db.ListNodes(ctx, cluster.ID)
-				if err != nil {
-					return errors.Wrap(err, "failed to list nodes")
-				}
-				ng := &p2plab.NodeGroup{
-					ID:    cluster.ID,
-					Nodes: ns,
-				}
-				if err := s.provider.DestroyNodeGroup(ctx, ng); err != nil {
-					return errors.Wrap(err, "failed to destroy node group")
-				}
-				info.Msg("tore down cluster")
-				return nil
+				return s.rhelper.DeleteCluster(ctx, name)
 			}()
-			info.Msg("creating nodes")
+
 			mns, err := s.db.ListNodes(ctx, cluster.ID)
 			if err != nil {
 				return err
 			}
+
 			var (
 				ns   []p2plab.Node
 				lset = query.NewLabeledSet()
@@ -189,47 +163,33 @@ func (s *router) postExperimentsCreate(ctx context.Context, w http.ResponseWrite
 				lset.Add(node)
 				ns = append(ns, node)
 			}
-			if !noReset {
-				info.Msg("updating nodes")
-				if err := nodes.Update(ctx, s.builder, ns); err != nil {
-					return errors.Wrap(err, "failed to update cluster")
-				}
-				info.Msg("connecting nodes")
-				if err := nodes.Connect(ctx, ns); err != nil {
-					return errors.Wrap(err, "failed to connect cluster")
-				}
+
+			var ids []string
+			for _, labeled := range lset.Slice() {
+				ids = append(ids, labeled.ID())
 			}
-			info.Msg("generating scenario plan")
+			zerolog.Ctx(ctx).Info().Int("trial", i).Strs("ids", ids).Msg("Created cluster for experiment")
+
+			err = nodes.Update(ctx, s.builder, ns)
+			if err != nil {
+				return errors.Wrap(err, "failed to update cluster")
+			}
+
+			err = nodes.Connect(ctx, ns)
+			if err != nil {
+				return errors.Wrap(err, "failed to connect cluster")
+			}
+
 			plan, queries, err := scenarios.Plan(ctx, trial.Scenario, s.ts, s.seeder, lset)
 			if err != nil {
 				return err
 			}
-			bid := xid.New().String()
-			benchmark := metadata.Benchmark{
-				ID:       bid,
-				Status:   metadata.BenchmarkRunning,
-				Cluster:  cluster,
-				Scenario: scenario,
-				Plan:     plan,
-				Labels: []string{
-					cluster.ID,
-					scenario.ID,
-					bid,
-				},
-			}
-			info.Msg("creating benchmark")
-			if benchmark, err = s.db.CreateBenchmark(ctx, benchmark); err != nil {
-				return err
-			}
-			var seederAddrs []string
-			for _, addr := range s.seeder.Host().Addrs() {
-				seederAddrs = append(seederAddrs, fmt.Sprintf("%s/p2p/%s", addr, s.seeder.Host().ID()))
-			}
-			info.Msg("running scenario")
+
 			execution, err := scenarios.Run(ctx, lset, plan, seederAddrs)
 			if err != nil {
-				return errors.Wrap(err, "failed to run scenario plan")
+				return errors.Wrapf(err, "failed to run scenario plan for %q", cluster.ID)
 			}
+
 			report := metadata.Report{
 				Summary: metadata.ReportSummary{
 					TotalTime: execution.End.Sub(execution.Start),
@@ -237,7 +197,7 @@ func (s *router) postExperimentsCreate(ctx context.Context, w http.ResponseWrite
 				Nodes:   execution.Report,
 				Queries: queries,
 			}
-			info.Msg("aggregating results")
+
 			report.Aggregates = reports.ComputeAggregates(report.Nodes)
 			jaegerUI := os.Getenv("JAEGER_UI")
 			if jaegerUI != "" {
@@ -246,31 +206,28 @@ func (s *router) postExperimentsCreate(ctx context.Context, w http.ResponseWrite
 					report.Summary.Trace = fmt.Sprintf("%s/trace/%s", jaegerUI, sc.TraceID())
 				}
 			}
-			info.Msg("Updating benchmark metadata")
-			err = s.db.Update(ctx, func(tx *bolt.Tx) error {
-				tctx := metadata.WithTransactionContext(ctx, tx)
 
-				err := s.db.CreateReport(tctx, benchmark.ID, report)
-				if err != nil {
-					return errors.Wrap(err, "failed to create report")
-				}
-
-				benchmark.Status = metadata.BenchmarkDone
-				_, err = s.db.UpdateBenchmark(tctx, benchmark)
-				if err != nil {
-					return errors.Wrap(err, "failed to update benchmark")
-				}
-
-				return nil
-			})
-			info.Msg("updating reports")
-			exp.Reports = append(exp.Reports, report)
+			mu.Lock()
+			experiment.Reports[i] = report
+			mu.Unlock()
 			return err
 		})
 	}
-	err = errg.Wait()
-	daemon.WriteJSON(w, &exp)
-	return err
+
+	err = eg.Wait()
+	if err != nil {
+		return err
+	}
+
+	experiment.Status = metadata.ExperimentDone
+	return s.db.Update(ctx, func(tx *bolt.Tx) error {
+		tctx := metadata.WithTransactionContext(ctx, tx)
+		_, err := s.db.UpdateExperiment(tctx, experiment)
+		if err != nil {
+			return err
+		}
+		return nil
+	})
 }
 
 func (s *router) putExperimentsLabel(ctx context.Context, w http.ResponseWriter, r *http.Request, vars map[string]string) error {

@@ -17,6 +17,7 @@ package metadata
 import (
 	"context"
 	"encoding/json"
+	"strconv"
 	"time"
 
 	"github.com/Netflix/p2plab/errdefs"
@@ -31,22 +32,17 @@ type Experiment struct {
 
 	Definition ExperimentDefinition
 
+	Reports []Report
+
 	Labels []string
 
 	CreatedAt, UpdatedAt time.Time
-
-	Reports []Report
-}
-
-// ToJSONIndent is like to ToJSON but formats the json data
-func (e *Experiment) ToJSONIndent() ([]byte, error) {
-	return json.MarshalIndent(e, "", "    ")
 }
 
 // ToJSON is a helper function to convert an Experiment
 // into it's JSON representation
 func (e *Experiment) ToJSON() ([]byte, error) {
-	return json.Marshal(e)
+	return json.MarshalIndent(e, "", "    ")
 }
 
 // FromJSON loads the experiment definition with the values from data
@@ -64,21 +60,13 @@ var (
 
 // ExperimentDefinition defines an experiment.
 type ExperimentDefinition struct {
-	IndependentVariable []IndependentVariable
-	TrialDefinition     []TrialDefinition
-}
-
-type IndependentVariable map[string]interface{}
-
-// ToJSONIndent is like to ToJSON but formats the json data
-func (ed *ExperimentDefinition) ToJSONIndent() ([]byte, error) {
-	return json.MarshalIndent(ed, "", "    ")
+	Trials []TrialDefinition
 }
 
 // ToJSON is a helper function to convert an ExperimentDefinition
 // into it's JSON representation
 func (ed *ExperimentDefinition) ToJSON() ([]byte, error) {
-	return json.Marshal(ed)
+	return json.MarshalIndent(ed, "", "    ")
 }
 
 // FromJSON loads the experiment definition with the values from data
@@ -273,6 +261,21 @@ func readExperiment(bkt *bolt.Bucket, experiment *Experiment) error {
 		return err
 	}
 
+	i := 0
+	rbkt := bkt.Bucket([]byte(strconv.Itoa(i)))
+	for rbkt != nil {
+		var report Report
+		err = readReport(rbkt, &report)
+		if err != nil {
+			return err
+		}
+
+		experiment.Reports = append(experiment.Reports, report)
+
+		i++
+		rbkt = bkt.Bucket([]byte(strconv.Itoa(i)))
+	}
+
 	return bkt.ForEach(func(k, v []byte) error {
 		if v == nil {
 			return nil
@@ -316,6 +319,18 @@ func writeExperiment(bkt *bolt.Bucket, experiment *Experiment) error {
 	err = writeLabels(bkt, experiment.Labels)
 	if err != nil {
 		return err
+	}
+
+	for i, report := range experiment.Reports {
+		rbkt, err := bkt.CreateBucket([]byte(strconv.Itoa(i)))
+		if err != nil {
+			return err
+		}
+
+		err = writeReport(rbkt, report)
+		if err != nil {
+			return err
+		}
 	}
 
 	for _, f := range []field{

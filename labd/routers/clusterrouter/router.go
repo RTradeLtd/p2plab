@@ -28,7 +28,6 @@ import (
 	"github.com/Netflix/p2plab/pkg/logutil"
 	"github.com/Netflix/p2plab/pkg/stringutil"
 	"github.com/Netflix/p2plab/query"
-	"github.com/pkg/errors"
 )
 
 type router struct {
@@ -87,7 +86,8 @@ func (s *router) postClustersCreate(ctx context.Context, w http.ResponseWriter, 
 	if err != nil {
 		return err
 	}
-	_, err = s.rhelper.CreateCluster(ctx, cdef, r.FormValue("name"), w)
+
+	_, err = s.rhelper.CreateCluster(ctx, cdef, r.FormValue("name"))
 	return err
 }
 
@@ -111,49 +111,14 @@ func (s *router) putClustersLabel(ctx context.Context, w http.ResponseWriter, r 
 func (s *router) deleteClusters(ctx context.Context, w http.ResponseWriter, r *http.Request, vars map[string]string) error {
 	names := strings.Split(r.FormValue("names"), ",")
 
-	ctx, logger := logutil.WithResponseLogger(ctx, w)
+	ctx, _ = logutil.WithResponseLogger(ctx, w)
 
 	// TODO: parallelize with different color loggers?
 	for _, name := range names {
-		logger := logger.With().Str("name", name).Logger()
-		ctx = logger.WithContext(ctx)
-
-		cluster, err := s.db.GetCluster(ctx, name)
+		err := s.rhelper.DeleteCluster(ctx, name)
 		if err != nil {
-			return errors.Wrapf(err, "failed to get cluster %q", name)
+			return err
 		}
-
-		if cluster.Status != metadata.ClusterDestroying {
-			cluster.Status = metadata.ClusterDestroying
-			cluster, err = s.db.UpdateCluster(ctx, cluster)
-			if err != nil {
-				return errors.Wrap(err, "failed to update cluster status to destroying")
-			}
-		}
-
-		ns, err := s.db.ListNodes(ctx, cluster.ID)
-		if err != nil {
-			return errors.Wrap(err, "failed to list nodes")
-		}
-
-		ng := &p2plab.NodeGroup{
-			ID:    cluster.ID,
-			Nodes: ns,
-		}
-
-		logger.Info().Msg("Destroying node group")
-		err = s.provider.DestroyNodeGroup(ctx, ng)
-		if err != nil {
-			return errors.Wrap(err, "failed to destroy node group")
-		}
-
-		logger.Info().Msg("Deleting cluster metadata")
-		err = s.db.DeleteCluster(ctx, cluster.ID)
-		if err != nil {
-			return errors.Wrap(err, "failed to delete cluster metadata")
-		}
-
-		logger.Info().Msg("Destroyed cluster")
 	}
 
 	return nil
