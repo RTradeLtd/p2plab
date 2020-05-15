@@ -40,14 +40,16 @@ func (h *Helper) CreateCluster(ctx context.Context, cdef metadata.ClusterDefinit
 		}
 		err error
 	)
+	// temporarily remove until hearing back from hinshun about this change
+	// if change is undesirable simply uncomment this
 	// TODO(bonedaddy): need a better way to set the peer definition
 	// 		- with cue we might want to include this as a configurable param
-	for i, def := range cluster.Definition.Groups {
+	/*for i, def := range cluster.Definition.Groups {
 		if def.Peer == nil {
 			def.Peer = &metadata.DefaultPeerDefinition
 			cluster.Definition.Groups[i] = def
 		}
-	}
+	}*/
 	cluster, err = h.db.CreateCluster(ctx, cluster)
 	if err != nil {
 		return cluster, err
