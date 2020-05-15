@@ -19,7 +19,9 @@ var (
 		region: string
 		// labels is an optional field
 		labels?: [...string]
-		peer?: Peer
+		// although not optional if left unspecified
+		// then we use the default values of Peer
+		peer: Peer | *Peer
 	}
 
 	Peer :: {
@@ -57,7 +59,6 @@ var (
 	
 	Experiment :: {
 		trials: [...Trial]
-		// trials: [ ...[Cluster,Scenario]]
 	}
 `
 )
