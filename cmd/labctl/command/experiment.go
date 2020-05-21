@@ -16,6 +16,7 @@ package command
 
 import (
 	"errors"
+	"fmt"
 
 	"github.com/Netflix/p2plab"
 	"github.com/Netflix/p2plab/experiments"
@@ -33,7 +34,7 @@ var experimentCommand = cli.Command{
 	Subcommands: []cli.Command{
 		{
 			Name:      "create",
-			Aliases:   []string{"s"},
+			Aliases:   []string{"c"},
 			Usage:     "Creates an experiment from a definition file",
 			ArgsUsage: "<filename>",
 			Action:    createExperimentAction,
@@ -41,6 +42,10 @@ var experimentCommand = cli.Command{
 				&cli.StringFlag{
 					Name:  "name",
 					Usage: "Name of the experiment, by default takes the name of the experiment definition.",
+				},
+				&cli.BoolFlag{
+					Name:  "dry-run",
+					Usage: "dry run the epxeriment creation, parsing the cue file and printing it to stdout",
 				},
 			},
 		},
@@ -96,7 +101,7 @@ func createExperimentAction(c *cli.Context) error {
 		return errors.New("experiment definition must be provided")
 	}
 
-	p, err := CommandPrinter(c, printer.OutputID)
+	p, err := CommandPrinter(c, printer.OutputJSON)
 	if err != nil {
 		return err
 	}
@@ -112,18 +117,32 @@ func createExperimentAction(c *cli.Context) error {
 		return err
 	}
 
+	if c.Bool("dry-run") {
+		dt, err := edef.ToJSON()
+		if err != nil {
+			return err
+		}
+		fmt.Println(string(dt))
+		return nil
+	}
+
 	control, err := ResolveControl(c)
 	if err != nil {
 		return err
 	}
 
 	ctx := cliutil.CommandContext(c)
-	experiment, err := control.Experiment().Create(ctx, name, edef)
+	id, err := control.Experiment().Create(ctx, name, edef)
 	if err != nil {
 		return err
 	}
 
+	experiment, err := control.Experiment().Get(ctx, id)
+	if err != nil {
+		return err
+	}
 	zerolog.Ctx(ctx).Info().Msgf("Completed experiment %q", experiment.Metadata().ID)
+
 	return p.Print(experiment.Metadata())
 }
 

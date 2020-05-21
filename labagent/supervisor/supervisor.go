@@ -26,6 +26,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"sync"
 	"syscall"
 
 	"github.com/Netflix/p2plab/downloaders"
@@ -42,13 +43,14 @@ type Supervisor interface {
 }
 
 type supervisor struct {
-	root    string
-	appRoot string
-	appPort string
-	client  *httputil.Client
-	fs      *downloaders.Downloaders
-	app     *exec.Cmd
-	cancel  func()
+	root      string
+	appRoot   string
+	appPort   string
+	app       *exec.Cmd
+	client    *httputil.Client
+	fs        *downloaders.Downloaders
+	mu        sync.Mutex
+	cancel    func()
 }
 
 func New(root, appRoot, appAddr string, client *httputil.Client, fs *downloaders.Downloaders) (Supervisor, error) {
@@ -68,15 +70,18 @@ func New(root, appRoot, appAddr string, client *httputil.Client, fs *downloaders
 	}
 
 	return &supervisor{
-		root:    root,
-		appRoot: appRoot,
-		appPort: appPort,
-		client:  client,
-		fs:      fs,
+		root:      root,
+		appRoot:   appRoot,
+		appPort:   appPort,
+		client:    client,
+		fs:        fs,
 	}, nil
 }
 
 func (s *supervisor) Supervise(ctx context.Context, id, link string, pdef metadata.PeerDefinition) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
 	err := s.kill(ctx)
 	if err != nil {
 		return err
@@ -134,7 +139,7 @@ func (s *supervisor) start(ctx context.Context, flags []string) error {
 	}
 
 	v := new(bytes.Buffer)
-	versionCmd := s.cmdWithStdio(ctx, v, ioutil.Discard, "--version")
+	versionCmd := s.cmdWithStdio(actx, v, ioutil.Discard, "--version")
 	err = versionCmd.Run()
 	if err != nil {
 		return err
@@ -165,9 +170,15 @@ func (s *supervisor) wait(ctx context.Context, flags []string) error {
 
 	go func() {
 		<-ctx.Done()
-		err := s.app.Process.Signal(syscall.SIGTERM)
-		if err != nil {
-			zerolog.Ctx(ctx).Error().Err(err).Msg("failed to SIGTERM labapp")
+		if ctx.Err() != nil {
+			zerolog.Ctx(ctx).Error().Err(ctx.Err()).Msg("context error is not nil")
+		}
+		if s.app.Process != nil {
+			zerolog.Ctx(ctx).Info().Msg("Forwarding kill signal to labapp")
+			err := s.app.Process.Signal(syscall.SIGTERM)
+			if err != nil {
+				zerolog.Ctx(ctx).Error().Err(err).Msg("failed to SIGTERM labapp")
+			}
 		}
 	}()
 
@@ -220,7 +231,7 @@ func (s *supervisor) atomicReplaceBinary(ctx context.Context, link string) error
 	defer span.Finish()
 	span.SetTag("link", link)
 
-	zerolog.Ctx(ctx).Debug().Msg("Atomically replacing binary")
+	zerolog.Ctx(ctx).Debug().Str("root", s.root).Msg("Atomically replacing binary")
 	u, err := url.Parse(link)
 	if err != nil {
 		return err

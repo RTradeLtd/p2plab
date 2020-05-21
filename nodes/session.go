@@ -33,18 +33,21 @@ func Session(ctx context.Context, ns []p2plab.Node, fn func(context.Context) err
 	defer span.Finish()
 	sctx := opentracing.ContextWithSpan(ctx, span)
 
+	var ids []string
+	for _, n := range ns {
+		ids = append(ids, n.ID())
+	}
+
 	eg, gctx := errgroup.WithContext(sctx)
 
 	zerolog.Ctx(ctx).Info().Msg("Starting a session for benchmarking")
 	go logutil.Elapsed(gctx, 20*time.Second, "Starting a session for benchmarking")
-
-	cancels := make([]context.CancelFunc, len(ns))
-	for i, n := range ns {
-		i, n := i, n
+	var cancels = make([]context.CancelFunc, 0, len(ns))
+	for _, n := range ns {
+		n := n
 		eg.Go(func() error {
 			lctx, cancel := context.WithCancel(gctx)
-			cancels[i] = cancel
-
+			cancels = append(cancels, cancel)
 			pdef := n.Metadata().Peer
 			err := n.Update(lctx, n.ID(), "", pdef)
 			if err != nil && !errdefs.IsCancelled(err) {
@@ -65,7 +68,7 @@ func Session(ctx context.Context, ns []p2plab.Node, fn func(context.Context) err
 		return nil, err
 	}
 
-	zerolog.Ctx(ctx).Info().Msg("Ending the session")
+	zerolog.Ctx(ctx).Info().Strs("nodes", ids).Msg("Ending the session")
 	for _, cancel := range cancels {
 		cancel()
 	}

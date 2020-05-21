@@ -24,6 +24,9 @@ import (
 )
 
 func DigestToCid(dgst digest.Digest) (cid.Cid, error) {
+	if dgst.String() == "" {
+		return cid.Cid{}, errors.New("bad digest")
+	}
 	data, err := hex.DecodeString(dgst.Hex())
 	if err != nil {
 		return cid.Cid{}, errors.Wrap(err, "failed to decode digest hex")

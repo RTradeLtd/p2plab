@@ -105,7 +105,6 @@ func appAction(c *cli.Context) error {
 	if err != nil {
 		return err
 	}
-
 	ctx := cliutil.CommandContext(c)
 	ctx, tracer, closer := traceutil.New(ctx, "labapp", nil)
 	defer closer.Close()
@@ -125,7 +124,6 @@ func appAction(c *cli.Context) error {
 			ctx = opentracing.ContextWithSpan(ctx, span)
 		}
 	}
-
 	app, err := labapp.New(ctx, root, c.GlobalString("address"), c.GlobalInt("libp2p-port"), zerolog.Ctx(ctx), metadata.PeerDefinition{
 		Transports:         c.GlobalStringSlice("libp2p-transports"),
 		Muxers:             c.GlobalStringSlice("libp2p-muxers"),
