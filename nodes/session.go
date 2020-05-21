@@ -19,9 +19,11 @@ import (
 	"time"
 
 	"github.com/Netflix/p2plab"
+	"github.com/Netflix/p2plab/errdefs"
 	"github.com/Netflix/p2plab/pkg/logutil"
 	"github.com/Netflix/p2plab/pkg/traceutil"
 	opentracing "github.com/opentracing/opentracing-go"
+	"github.com/pkg/errors"
 	"github.com/rs/zerolog"
 	"golang.org/x/sync/errgroup"
 )
@@ -40,23 +42,21 @@ func Session(ctx context.Context, ns []p2plab.Node, fn func(context.Context) err
 
 	zerolog.Ctx(ctx).Info().Msg("Starting a session for benchmarking")
 	go logutil.Elapsed(gctx, 20*time.Second, "Starting a session for benchmarking")
+	var cancels = make([]context.CancelFunc, 0, len(ns))
+	for _, n := range ns {
+		n := n
+		eg.Go(func() error {
+			lctx, cancel := context.WithCancel(gctx)
+			cancels = append(cancels, cancel)
+			pdef := n.Metadata().Peer
+			err := n.Update(lctx, n.ID(), "", pdef)
+			if err != nil && !errdefs.IsCancelled(err) {
+				return errors.Wrapf(err, "failed to update node %q", n.ID())
+			}
 
-	// cancels := make([]context.CancelFunc, len(ns))
-	// for i, n := range ns {
-	// 	i, n := i, n
-	// 	eg.Go(func() error {
-	// 		lctx, cancel := context.WithCancel(context.Background())
-	// 		cancels[i] = cancel
-
-	// 		pdef := n.Metadata().Peer
-	// 		err := n.Update(lctx, n.ID(), "", pdef)
-	// 		if err != nil && !errdefs.IsCancelled(err) {
-	// 			return errors.Wrapf(err, "failed to update node %q", n.ID())
-	// 		}
-
-	// 		return nil
-	// 	})
-	// }
+			return nil
+		})
+	}
 
 	err := WaitHealthy(ctx, ns)
 	if err != nil {
@@ -68,10 +68,10 @@ func Session(ctx context.Context, ns []p2plab.Node, fn func(context.Context) err
 		return nil, err
 	}
 
-	// zerolog.Ctx(ctx).Info().Strs("nodes", ids).Msg("Ending the session")
-	// for _, cancel := range cancels {
-	// 	cancel()
-	// }
+	zerolog.Ctx(ctx).Info().Strs("nodes", ids).Msg("Ending the session")
+	for _, cancel := range cancels {
+		cancel()
+	}
 
 	err = eg.Wait()
 	if err != nil {
